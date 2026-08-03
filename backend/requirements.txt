@@ -1,0 +1,6 @@
+langgraph
+langgraph-checkpoint-sqlite
+langchain-openrouter
+langchain-google-genai
+fastapi
+python-dotenv
