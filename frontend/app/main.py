@@ -35,3 +35,24 @@ if st.button("Call Root Endpoint"):
             st.error(f"API returned status {response.status_code}")
     except requests.exceptions.RequestException as e:
         st.error(f"Failed to connect to API: {e}")
+
+# Chat interface
+st.divider()
+st.subheader("Chat with Gemini")
+
+user_message = st.text_input("Your message:", placeholder="Ask me anything...")
+
+if st.button("Send", type="primary") and user_message:
+    try:
+        response = requests.post(
+            f"{API_BASE_URL}/chat",
+            json={"message": user_message},
+            timeout=30
+        )
+        if response.status_code == 200:
+            st.success("Response:")
+            st.write(response.json()["response"])
+        else:
+            st.error(f"API returned status {response.status_code}: {response.text}")
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to connect to API: {e}")
