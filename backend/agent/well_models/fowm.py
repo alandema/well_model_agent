@@ -110,6 +110,20 @@ class FOWM:
     four pressure trajectories and the final steady-state values.
     """
 
+    # Human-readable description used by the well_model_picker tool to
+    # decide when this model is a good fit for a user request.
+    id = "fowm"
+    description = (
+        "Fast Offshore Wells Model (FOWM): a dynamic multiphase model for "
+        "oil production in offshore (deepwater / ultra-deepwater) wells. "
+        "It integrates a six-ODE mass-balance system across the pipeline, "
+        "riser, tubing and annulus, and returns time series for six mass "
+        "states and four pressures (PDG, tubing top, riser top, riser "
+        "bottom). Use this model for offshore well production, gas-lift, "
+        "choke/separator/reservoir pressure scenarios, and transient "
+        "multiphase flow analysis in subsea wells."
+    )
+
     # State variable names (masses)
     STATE_NAMES = [
         "m_gas_bubble",      # x1 - gas mass in the pipeline bubble
@@ -123,9 +137,79 @@ class FOWM:
     # Pressure names
     PRESSURE_NAMES = ["Ppdg", "Ptt", "Prt", "Prb"]
 
+    # User-facing parameters required to run the model, exposed to the
+    # agent via the get_model_parameters tool. Each entry has a name,
+    # description, unit and default value.
+    parameters = [
+        {
+            "name": "gas_lift_rate",
+            "description": "Gas-lift rate",
+            "unit": "Sm3/day",
+            "default": 165000.0,
+        },
+        {
+            "name": "choke_opening",
+            "description": "Choke opening",
+            "unit": "% (0-100)",
+            "default": 16.0,
+        },
+        {
+            "name": "separator_pressure",
+            "description": "Separator pressure",
+            "unit": "Pa",
+            "default": 1013250.0,
+        },
+        {
+            "name": "reservoir_pressure",
+            "description": "Reservoir pressure",
+            "unit": "Pa",
+            "default": 2.25e7,
+        },
+        {
+            "name": "t_end",
+            "description": "End time of the simulation",
+            "unit": "s",
+            "default": 100000.0,
+        },
+        {
+            "name": "n_points",
+            "description": "Number of time-grid points",
+            "unit": "-",
+            "default": 1001,
+        },
+    ]
+
     # ------------------------------------------------------------------
     # Core ODE + pressure computation (single source of truth)
     # ------------------------------------------------------------------
+    @classmethod
+    def build_config(cls, parameters: Dict) -> "FOWMConfig":
+        """Build a :class:`FOWMConfig` from a dict of user-facing parameters.
+
+        Recognised keys (all optional, defaults applied when missing):
+        ``gas_lift_rate``, ``choke_opening``, ``separator_pressure``,
+        ``reservoir_pressure``, ``t_end``, ``n_points``.
+        """
+        cfg = FOWMConfig()
+
+        u = list(cfg.u)
+        if parameters.get("gas_lift_rate") is not None:
+            u[0] = parameters["gas_lift_rate"]
+        if parameters.get("choke_opening") is not None:
+            u[1] = parameters["choke_opening"]
+        if parameters.get("separator_pressure") is not None:
+            u[2] = parameters["separator_pressure"]
+        if parameters.get("reservoir_pressure") is not None:
+            u[3] = parameters["reservoir_pressure"]
+        cfg.u = u
+
+        if parameters.get("t_end") is not None or parameters.get("n_points") is not None:
+            t_end = parameters.get("t_end") or 100000.0
+            n_points = parameters.get("n_points") or 1001
+            cfg.t = list(np.linspace(0, t_end, n_points))
+
+        return cfg
+
     @staticmethod
     def _derivatives_and_pressures(
         x: np.ndarray, u: np.ndarray, param: np.ndarray

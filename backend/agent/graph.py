@@ -9,7 +9,9 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from agent.tools.add import add
 from agent.tools.multiply import multiply
-from agent.tools.fowm_tool import run_fowm
+from agent.tools.run_model import run_model
+from agent.tools.well_model_picker import well_model_picker
+from agent.tools.get_model_parameters import get_model_parameters
 from agent.tools.hitl_wrapper import wrap_for_hitl
 
 
@@ -22,9 +24,9 @@ _model_cfg = config.get("model", {})
 
 # Tools available to the agent
 # hitl_tools are wrapped so they pause for human approval before executing
-_raw_hitl_tools = [add, run_fowm]
+_raw_hitl_tools = [add, run_model]
 hitl_tools = [wrap_for_hitl(t) for t in _raw_hitl_tools]
-non_hitl_tools = [multiply]
+non_hitl_tools = [multiply, well_model_picker, get_model_parameters]
 
 all_tools = hitl_tools + non_hitl_tools
 
@@ -35,8 +37,7 @@ def call_model(state: MessagesState):
         model=_model_cfg.get("id", "inclusionai/ling-3.0-flash:free"),
         temperature=_model_cfg.get("temperature", 0.7),
         max_tokens=_model_cfg.get("max_tokens"),
-        model_kwargs={"extra_body": {"reasoning": _model_cfg.get("reasoning", {})}}
-        if _model_cfg.get("reasoning") else None,
+        reasoning=_model_cfg.get("reasoning"),
     )
     model_with_tools = model.bind_tools(all_tools)
     messages = state["messages"]
