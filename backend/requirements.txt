@@ -1,4 +1,5 @@
 langgraph
+langchain
 langgraph-checkpoint-sqlite
 langchain-openrouter
 langchain-google-genai
