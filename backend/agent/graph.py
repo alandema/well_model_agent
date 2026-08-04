@@ -1,10 +1,10 @@
 from langgraph.graph import StateGraph, MessagesState,  START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openrouter.chat_models import ChatOpenRouter
 
 
 def call_model(state: MessagesState):
     """Single node that calls the Gemini model."""
-    model = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
+    model = ChatOpenRouter(model="inclusionai/ling-3.0-flash:free")
     response = model.invoke(state["messages"])
     return {"messages": [response]}
 

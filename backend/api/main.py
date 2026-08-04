@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from agent.graph import graph
 from langchain_core.messages import HumanMessage
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
