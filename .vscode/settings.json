@@ -1,0 +1,28 @@
+{
+    // Python autoformatter (PEP 8) using autopep8
+    "python.formatting.provider": "autopep8",
+    "python.formatting.autopep8Args": [
+        "--max-line-length=79",
+        "--aggressive",
+        "--aggressive"
+    ],
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "editor.formatOnType": false,
+        "editor.defaultFormatter": "ms-python.python"
+    },
+    // JSON autoformatter
+    "[json]": {
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "editor.formatOnType": true,
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[jsonc]": {
+        "editor.formatOnSave": true,
+        "editor.formatOnPaste": true,
+        "editor.formatOnType": true,
+        "editor.defaultFormatter": "vscode.json-language-features"
+    }
+}

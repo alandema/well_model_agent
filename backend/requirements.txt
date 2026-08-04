@@ -5,3 +5,5 @@ langchain-openrouter
 langchain-google-genai
 fastapi[standard]
 python-dotenv
+numpy
+scipy
