@@ -7,8 +7,7 @@ from langchain_core.messages import SystemMessage
 from langchain_openrouter.chat_models import ChatOpenRouter
 from langgraph.checkpoint.sqlite import SqliteSaver
 
-from agent.tools.add import add
-from agent.tools.multiply import multiply
+
 from agent.tools.run_model import run_model
 from agent.tools.well_model_picker import well_model_picker
 from agent.tools.get_model_parameters import get_model_parameters
@@ -16,7 +15,8 @@ from agent.tools.hitl_wrapper import wrap_for_hitl
 
 
 # Load model configuration from prompts/config.json
-_config_path = os.path.join(os.path.dirname(__file__), "prompts", "config.json")
+_config_path = os.path.join(os.path.dirname(
+    __file__), "prompts", "config.json")
 with open(_config_path, "r", encoding="utf-8") as f:
     config = json.load(f)
 
@@ -24,9 +24,9 @@ _model_cfg = config.get("model", {})
 
 # Tools available to the agent
 # hitl_tools are wrapped so they pause for human approval before executing
-_raw_hitl_tools = [add, run_model]
+_raw_hitl_tools = [run_model]
 hitl_tools = [wrap_for_hitl(t) for t in _raw_hitl_tools]
-non_hitl_tools = [multiply, well_model_picker, get_model_parameters]
+non_hitl_tools = [well_model_picker, get_model_parameters]
 
 all_tools = hitl_tools + non_hitl_tools
 
@@ -41,7 +41,8 @@ def call_model(state: MessagesState):
     )
     model_with_tools = model.bind_tools(all_tools)
     messages = state["messages"]
-    messages = [SystemMessage(content=_model_cfg.get("system_prompt", ""))] + list(messages)
+    messages = [SystemMessage(content=_model_cfg.get(
+        "system_prompt", ""))] + list(messages)
     response = model_with_tools.invoke(messages)
     return {"messages": [response]}
 
