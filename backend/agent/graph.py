@@ -1,67 +1,49 @@
 import os
-import json
 import sqlite3
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
-from langchain_core.messages import SystemMessage
-from langchain_openrouter.chat_models import ChatOpenRouter
+from agent.services.llm_model_factory import create_llm_model
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 
-from agent.tools.run_model import run_model
-from agent.tools.well_model_picker import well_model_picker
-from agent.tools.get_model_parameters import get_model_parameters
-from agent.tools.hitl_wrapper import wrap_for_hitl
+from agent.tools.fowm import fowm_model
+
+all_tools = [fowm_model]
 
 
-# Load model configuration from prompts/config.json
-_config_path = os.path.join(os.path.dirname(
-    __file__), "prompts", "config.json")
-with open(_config_path, "r", encoding="utf-8") as f:
-    config = json.load(f)
-
-_model_cfg = config.get("model", {})
-
-# Tools available to the agent
-# hitl_tools are wrapped so they pause for human approval before executing
-_raw_hitl_tools = [run_model]
-hitl_tools = [wrap_for_hitl(t) for t in _raw_hitl_tools]
-non_hitl_tools = [well_model_picker, get_model_parameters]
-
-all_tools = hitl_tools + non_hitl_tools
-
-
-def call_model(state: MessagesState):
-    """Single node that calls the configured model with tools bound."""
-    model = ChatOpenRouter(
-        model=_model_cfg.get("id", "inclusionai/ling-3.0-flash:free"),
-        temperature=_model_cfg.get("temperature", 0.7),
-        max_tokens=_model_cfg.get("max_tokens"),
-        reasoning=_model_cfg.get("reasoning"),
+def create_graph(llm_model_config: dict):
+    # The factory returns a Runnable that already has the system prompt
+    # and tools attached (prompt | model.bind_tools(tools)).
+    principal_model = create_llm_model(
+        llm_model_config.get("principal", {}), tools=all_tools
     )
-    model_with_tools = model.bind_tools(all_tools)
-    messages = state["messages"]
-    messages = [SystemMessage(content=_model_cfg.get(
-        "system_prompt", ""))] + list(messages)
-    response = model_with_tools.invoke(messages)
-    return {"messages": [response]}
 
+    def call_model(state: MessagesState):
+        """Single node that calls the configured model.
 
-# Build the graph
-builder = StateGraph(MessagesState)
-builder.add_node("call_model", call_model)
-builder.add_node("tools", ToolNode(all_tools))
-builder.add_edge(START, "call_model")
-builder.add_conditional_edges("call_model", tools_condition)
-builder.add_edge("tools", "call_model")
+        The system prompt and tools are already attached to the model in
+        the factory, so this node only needs to invoke it on the messages.
+        """
+        response = principal_model.invoke({"messages": state["messages"]})
+        return {"messages": [response]}
 
-# Create checkpoints directory if it doesn't exist
-checkpoint_dir = os.path.join(os.path.dirname(__file__), "..", ".checkpoints")
-os.makedirs(checkpoint_dir, exist_ok=True)
+    # Build the graph
+    builder = StateGraph(MessagesState)
+    builder.add_node("call_model", call_model)
+    builder.add_node("tools", ToolNode(all_tools))
+    builder.add_edge(START, "call_model")
+    builder.add_conditional_edges("call_model", tools_condition)
+    builder.add_edge("tools", "call_model")
 
-# Initialize SQLite checkpointer
-checkpoint_path = os.path.join(checkpoint_dir, "checkpoints.sqlite")
-conn = sqlite3.connect(checkpoint_path, check_same_thread=False)
-checkpointer = SqliteSaver(conn)
+    # Create checkpoints directory if it doesn't exist
+    checkpoint_dir = os.path.join(
+        os.path.dirname(__file__), "..", ".checkpoints")
+    os.makedirs(checkpoint_dir, exist_ok=True)
 
-graph = builder.compile(checkpointer=checkpointer)
+    # Initialize SQLite checkpointer
+    checkpoint_path = os.path.join(checkpoint_dir, "checkpoints.sqlite")
+    conn = sqlite3.connect(checkpoint_path, check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
+
+    graph = builder.compile(checkpointer=checkpointer)
+    return graph

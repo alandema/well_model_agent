@@ -1,14 +1,25 @@
+import os
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from agent.graph import graph
+from agent.graph import create_graph
+from agent.services.config import load_config
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 from dotenv import load_dotenv
 import uuid
 
+this_file_path = os.path.abspath(__file__)
 load_dotenv()
 
 app = FastAPI()
+
+config = load_config(os.path.join(
+    os.path.dirname(this_file_path), "..", "agent", "prompts", "config.json"))
+
+graph = create_graph(
+    llm_model_config=config)
 
 
 class ChatRequest(BaseModel):
@@ -44,7 +55,6 @@ async def chat(request: ChatRequest):
     thread_id = request.thread_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
-    # v3 stream_events supports stream.messages + stream.interrupted / stream.interrupts
     stream = graph.stream_events(
         {"messages": [HumanMessage(content=request.message)]},
         config=config,
@@ -52,7 +62,7 @@ async def chat(request: ChatRequest):
     )
 
     last_message = ""
-    for message in stream.messages:
+    for message in list(stream.messages):
         last_message += str(message.text)
 
     if stream.interrupted:
@@ -66,7 +76,39 @@ async def chat(request: ChatRequest):
     return ChatResponse(response=last_message, thread_id=thread_id)
 
 
-@app.post("/chat/resume", response_model=ChatResponse)
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """Stream the assistant response token-by-token using LangGraph event
+    streaming (stream_events version="v3", stream.messages projection).
+
+    The response is plain text streamed as it is generated. After the text
+    finishes, a final line prefixed with `__META__:` carries the thread_id
+    and (optionally) an interrupt payload as JSON, so the frontend can keep
+    conversation memory and handle human-in-the-loop approvals.
+    """
+    thread_id = request.thread_id or str(uuid.uuid4())
+    config = {"configurable": {"thread_id": thread_id}}
+
+    def token_generator():
+        stream = graph.stream_events(
+            {"messages": [HumanMessage(content=request.message)]},
+            config=config
+        )
+
+        for message in stream.messages:
+            for token in message.text:
+                yield token
+
+        # After the run finishes (or pauses), send metadata the frontend needs.
+        import json
+        meta = {"thread_id": thread_id}
+        if stream.interrupted:
+            meta["interrupt"] = stream.interrupts[0].value
+        yield f"\n__META__:{json.dumps(meta)}"
+
+    return StreamingResponse(token_generator(), media_type="text/plain")
+
+
 async def resume_chat(request: ResumeRequest):
     """Resume a paused graph after a human approves/edits/rejects a HITL tool."""
     config = {"configurable": {"thread_id": request.thread_id}}
@@ -76,9 +118,11 @@ async def resume_chat(request: ResumeRequest):
     elif request.action == "edit":
         resume_value = {"action": "edit", "args": request.args or {}}
     elif request.action == "reject":
-        resume_value = {"action": "reject", "reason": request.reason or "User rejected"}
+        resume_value = {"action": "reject",
+                        "reason": request.reason or "User rejected"}
     else:
-        raise HTTPException(status_code=400, detail=f"Unknown action: {request.action}")
+        raise HTTPException(
+            status_code=400, detail=f"Unknown action: {request.action}")
 
     stream = graph.stream_events(
         Command(resume=resume_value),
@@ -87,7 +131,7 @@ async def resume_chat(request: ResumeRequest):
     )
 
     last_message = ""
-    for message in stream.messages:
+    for message in list(stream.messages):
         last_message += str(message.text)
 
     if stream.interrupted:

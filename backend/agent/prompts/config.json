@@ -1,10 +1,12 @@
 {
-    "model": {
-        "id": "inclusionai/ling-3.0-flash:free",
-        "temperature": 0,
-        "reasoning": {
-            "effort": "high"
-        }
-    },
-    "system_prompt": "You are a helpful assistant with access to tools. Use them when appropriate."
+    "principal": {
+        "model_id": "poolside/laguna-s-2.1:free",
+        "model_config": {
+            "temperature": 0,
+            "reasoning": {
+                "effort": "high"
+            }
+        },
+        "system_prompt": "You are a helpful assistant with access to tools. Use them when appropriate."
+    }
 }
