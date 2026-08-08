@@ -23,14 +23,19 @@ DEFAULT_X0 = (np.multiply(1e4, [
     0.213535823438009, 0.113058624767771, 1.519684541979486,
 ])).tolist()
 
-# Default control inputs (from the reference FOWM script).
-DEFAULT_U = [165000.0, 16.0, 1013250.0, 2.25e7]
-
 # Default time grid (from the reference FOWM script).
 DEFAULT_T = np.linspace(0, 100000, 1001).tolist()
 
 
-def fowm(x, t, u, param):
+def fowm(
+    x,
+    t,
+    gas_injection_rate,
+    choke_opening,
+    separator_pressure,
+    reservoir_pressure,
+    param,
+):
     """FOWM (Fast Offshore Well Model) dynamics and pressures.
 
     Returns a tuple `(dx, outputs)` where:
@@ -40,12 +45,14 @@ def fowm(x, t, u, param):
     Args:
         x: state variables [x1..x6].
         t: time (unused, the model is time-invariant).
-        u: control inputs [u1..u4].
+        gas_injection_rate: Gas injection rate at standard conditions, in m³/day.
+        choke_opening: Production choke opening, as a percentage from 0 to 100.
+        separator_pressure: Separator pressure, in Pa.
+        reservoir_pressure: Reservoir pressure, in Pa.
         param: parameters [mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr].
     """
     x1, x2, x3, x4, x5, x6 = x
     mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr = param
-    u1, u2, u3, u4 = u
 
     # Physical constants
     Rol = 900.0
@@ -67,10 +74,10 @@ def fowm(x, t, u, param):
     Ht = 1279.0
 
     # Control inputs
-    Ps = u3
-    Pr = u4
-    Wgc = u1 * 101325.0 * M / (293.0 * R) / 3600.0 / 24.0
-    z = u2 / 100.0
+    Ps = separator_pressure
+    Pr = reservoir_pressure
+    Wgc = gas_injection_rate * 101325.0 * M / (293.0 * R) / 3600.0 / 24.0
+    z = choke_opening / 100.0
 
     # RISER + PIPELINE
     Peb = x1 * R * T / (M * Veb)
@@ -130,9 +137,38 @@ class FowmModelInput(BaseModel):
         default=None,
         description="Time points to integrate over. If omitted, the default FOWM time grid is used.",
     )
-    u: list[float] = Field(
-        default=None,
-        description="Control inputs [u1..u4]. If omitted, the default FOWM control inputs are used.",
+    gas_injection_rate: float = Field(
+        default=165000.0,
+        ge=0.0,
+        description=(
+            "Gas injection rate at standard conditions, in m³/day. "
+            "This is the gas injected into the annulus for gas lift."
+        ),
+    )
+    choke_opening: float = Field(
+        default=16.0,
+        ge=0.0,
+        le=100.0,
+        description=(
+            "Production choke opening as a percentage from 0 to 100. "
+            "For example, 16 means the choke is 16% open."
+        ),
+    )
+    separator_pressure: float = Field(
+        default=101325.0,
+        gt=0.0,
+        description=(
+            "Pressure at the separator or riser outlet, in Pa. "
+            "This is the model's downstream pressure (Ps)."
+        ),
+    )
+    reservoir_pressure: float = Field(
+        default=2.25e7,
+        gt=0.0,
+        description=(
+            "Reservoir pressure driving production inflow, in Pa. "
+            "This is the model's reservoir pressure (Pr)."
+        ),
     )
     param: list[float] = Field(
         default=None,
@@ -142,22 +178,44 @@ class FowmModelInput(BaseModel):
 
 @tool(
     args_schema=FowmModelInput,
-    description="FOWM (Fast Offshore Well Model) tool for simulating well dynamics based on state variables, time, control inputs, and parameters. Use this model to predict the behavior of the well system under various conditions."
+    description=(
+        "FOWM (Fast Offshore Well Model) tool for simulating offshore well dynamics. "
+        "Use it to predict well behavior and pressures for a specified initial state, "
+        "time grid, gas injection rate, choke opening, separator pressure, reservoir "
+        "pressure, and model parameters."
+    ),
 )
-def fowm_model(x0: list[float] = None, t: list[float] = None, u: list[float] = None, param: list[float] = None) -> str:
+def fowm_model(
+    gas_injection_rate: float,
+    choke_opening: float,
+    separator_pressure: float,
+    reservoir_pressure: float,
+    x0: list[float] = None,
+    t: list[float] = None,
+    param: list[float] = None
+) -> str:
     """Run the FOWM model and write the results to a CSV file.
 
     Returns the absolute path to the generated CSV file.
     """
+
     if x0 is None:
         x0 = DEFAULT_X0
     if t is None:
         t = DEFAULT_T
-    if u is None:
-        u = DEFAULT_U
     if param is None:
         param = DEFAULT_PARAM
-    sol, outputs = run_model(fowm, x0, t, u, param)
+
+    sol, outputs = run_model(
+        fowm,
+        x0,
+        t,
+        gas_injection_rate,
+        choke_opening,
+        separator_pressure,
+        reservoir_pressure,
+        param,
+    )
 
     # Build the CSV: one row per time point with t, states, then pressures.
     os.makedirs(OUTPUT_DIR, exist_ok=True)
