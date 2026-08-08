@@ -5,40 +5,19 @@ from scipy.integrate import odeint
 def run_model(
     model_fn,
     x0,
-    t,
-    gas_injection_rate,
-    choke_opening,
-    separator_pressure,
-    reservoir_pressure,
-    param,
+    integration_time,
+    params,
+    time_points,
 ):
     def dynamics(
         x,
         t,
-        gas_injection_rate,
-        choke_opening,
-        separator_pressure,
-        reservoir_pressure,
-        param,
+        params,
     ):
-        dx, _ = model_fn(
-            x,
-            t,
-            gas_injection_rate,
-            choke_opening,
-            separator_pressure,
-            reservoir_pressure,
-            param,
-        )
+        dx, _ = model_fn(x, t, params)
         return dx
 
-    model_args = (
-        gas_injection_rate,
-        choke_opening,
-        separator_pressure,
-        reservoir_pressure,
-        param,
-    )
-    sol = odeint(dynamics, x0, t, args=model_args)
-    outputs = [model_fn(sol[i], t[i], *model_args)[1] for i in range(len(t))]
-    return sol, outputs
+    t = np.linspace(0, integration_time, time_points)
+    sol = odeint(dynamics, x0, t, args=(params,))
+    outputs = [model_fn(sol[i], t[i], params)[1] for i in range(len(t))]
+    return sol, outputs, t

@@ -5,17 +5,12 @@ import datetime
 import numpy as np
 from pydantic import BaseModel, Field
 from langchain.tools import tool
+from langgraph.prebuilt import ToolRuntime
 
 from agent.services.model_runner import run_model
 
 # Directory where model outputs are written as CSV files.
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
-
-# Default model parameters (from the reference FOWM script).
-DEFAULT_PARAM = (np.multiply(1e2, [
-    7.109820799914321, 0.000000234607899, 0.000058137935671, 0.901595193514190,
-    0.000358225582262, 0.000010212053760, 0.000001766624933, 2.467164730000336,
-])).tolist()
 
 # Default initial state (from the reference FOWM script).
 DEFAULT_X0 = (np.multiply(1e4, [
@@ -23,18 +18,11 @@ DEFAULT_X0 = (np.multiply(1e4, [
     0.213535823438009, 0.113058624767771, 1.519684541979486,
 ])).tolist()
 
-# Default time grid (from the reference FOWM script).
-DEFAULT_T = np.linspace(0, 100000, 1001).tolist()
-
 
 def fowm(
-    x,
+    initial_conditions,
     t,
-    gas_injection_rate,
-    choke_opening,
-    separator_pressure,
-    reservoir_pressure,
-    param,
+    params
 ):
     """FOWM (Fast Offshore Well Model) dynamics and pressures.
 
@@ -51,8 +39,8 @@ def fowm(
         reservoir_pressure: Reservoir pressure, in Pa.
         param: parameters [mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr].
     """
-    x1, x2, x3, x4, x5, x6 = x
-    mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr = param
+    x1, x2, x3, x4, x5, x6 = initial_conditions
+    separator_pressure, reservoir_pressure, gas_injection_rate, choke_opening, mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr = params
 
     # Physical constants
     Rol = 900.0
@@ -133,10 +121,6 @@ class FowmModelInput(BaseModel):
         default=None,
         description="Initial state variables [x1..x6]. If omitted, the default FOWM initial state is used.",
     )
-    t: list[float] = Field(
-        default=None,
-        description="Time points to integrate over. If omitted, the default FOWM time grid is used.",
-    )
     gas_injection_rate: float = Field(
         default=165000.0,
         ge=0.0,
@@ -170,9 +154,57 @@ class FowmModelInput(BaseModel):
             "This is the model's reservoir pressure (Pr)."
         ),
     )
-    param: list[float] = Field(
-        default=None,
-        description="Model parameters. If omitted, the default FOWM parameters are used.",
+    mlstill: float = Field(
+        default=7.11e2,
+        description=(
+            "Still-liquid mass in the riser, in kg. This parameter is added to the "
+            "riser liquid mass when calculating riser pressures."
+        ),
+    )
+    Cg: float = Field(
+        default=2.35e-7,
+        ge=0.0,
+        description=(
+            "Gas transfer coefficient from the expanded bubble to the riser, used "
+            "to calculate the gas flow rate Wg."
+        ),
+    )
+    Cout: float = Field(
+        default=5.81e-5,
+        ge=0.0,
+        description=(
+            "Riser outlet flow coefficient, used with choke opening and the "
+            "pressure difference to calculate the outlet flow."
+        ),
+    )
+    Veb: float = Field(
+        default=0.9016,
+        gt=0.0,
+        description="Expanded-bubble volume, in m³, used to calculate bubble pressure.",
+    )
+    E: float = Field(
+        default=0.000358225582262,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Fraction of wellhead gas flow transferred into the riser gas inventory "
+            "instead of the expanded bubble."
+        ),
+    )
+    Kw: float = Field(
+        default=1.021205376e-5,
+        ge=0.0,
+        description="Wellhead flow coefficient used to calculate tubing-to-riser flow.",
+    )
+    Ka: float = Field(
+        default=1.766624933e-6,
+        ge=0.0,
+        description="Annulus flow coefficient used to calculate injected-gas flow into the tubing.",
+    )
+    Kr: float = Field(
+        default=2.467164730000336e-6,
+        ge=0.0,
+        description="Reservoir inflow coefficient used to calculate the reservoir flow rate.",
     )
 
 
@@ -201,9 +233,16 @@ def fowm_model(
     choke_opening: float,
     separator_pressure: float,
     reservoir_pressure: float,
+    mlstill: float,
+    Cg: float,
+    Cout: float,
+    Veb: float,
+    E: float,
+    Kw: float,
+    Ka: float,
+    Kr: float,
+    runtime: ToolRuntime,
     x0: list[float] = None,
-    t: list[float] = None,
-    param: list[float] = None
 ) -> str:
     """Run the FOWM model and write the results to a CSV file.
 
@@ -212,21 +251,20 @@ def fowm_model(
 
     if x0 is None:
         x0 = DEFAULT_X0
-    if t is None:
-        t = DEFAULT_T
-    if param is None:
-        param = DEFAULT_PARAM
+
+    integration_time = runtime.config["configurable"]["integration_time"]
+    time_points = runtime.config["configurable"]["time_points"]
+
+    params = [separator_pressure, reservoir_pressure, gas_injection_rate,
+              choke_opening, mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr]
 
     try:
-        sol, outputs = run_model(
+        sol, outputs, t = run_model(
             fowm,
             x0,
-            t,
-            gas_injection_rate,
-            choke_opening,
-            separator_pressure,
-            reservoir_pressure,
-            param,
+            integration_time,
+            params,
+            time_points,
         )
     except Exception as e:
         return f"Error running FOWM model: {str(e)}"

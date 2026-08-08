@@ -2,7 +2,7 @@ import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from agent.graph import create_graph
 from agent.services.config import load_config
 from langchain_core.messages import HumanMessage
@@ -25,6 +25,8 @@ graph = create_graph(
 class ChatRequest(BaseModel):
     message: str
     thread_id: str | None = None
+    integration_time: float = Field(gt=0)
+    time_points: int = Field(ge=2)
 
 
 class ChatResponse(BaseModel):
@@ -38,6 +40,8 @@ class ResumeRequest(BaseModel):
     action: str  # "approve", "edit", or "reject"
     args: dict | None = None  # Edited args (only for "edit")
     reason: str | None = None  # Rejection reason (only for "reject")
+    integration_time: float = Field(gt=0)
+    time_points: int = Field(ge=2)
 
 
 @app.get("/")
@@ -53,7 +57,13 @@ async def health():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     thread_id = request.thread_id or str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+            "integration_time": request.integration_time,
+            "time_points": request.time_points,
+        }
+    }
 
     stream = graph.stream_events(
         {"messages": [HumanMessage(content=request.message)]},
@@ -87,7 +97,13 @@ async def chat_stream(request: ChatRequest):
     conversation memory and handle human-in-the-loop approvals.
     """
     thread_id = request.thread_id or str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+            "integration_time": request.integration_time,
+            "time_points": request.time_points,
+        }
+    }
 
     def token_generator():
         stream = graph.stream_events(
@@ -111,7 +127,13 @@ async def chat_stream(request: ChatRequest):
 
 async def resume_chat(request: ResumeRequest):
     """Resume a paused graph after a human approves/edits/rejects a HITL tool."""
-    config = {"configurable": {"thread_id": request.thread_id}}
+    config = {
+        "configurable": {
+            "thread_id": request.thread_id,
+            "integration_time": request.integration_time,
+            "time_points": request.time_points,
+        }
+    }
 
     if request.action == "approve":
         resume_value = {"action": "approve"}
