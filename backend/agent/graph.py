@@ -1,8 +1,9 @@
 import os
 import sqlite3
-from langgraph.graph import StateGraph, MessagesState, START, END
+from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode, tools_condition
 from agent.services.llm_model_factory import create_llm_model
+from agent.state import AgentState
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 
@@ -18,7 +19,7 @@ def create_graph(llm_model_config: dict):
         llm_model_config.get("principal", {}), tools=all_tools
     )
 
-    def call_model(state: MessagesState):
+    def call_model(state: AgentState):
         """Single node that calls the configured model.
 
         The system prompt and tools are already attached to the model in
@@ -28,9 +29,11 @@ def create_graph(llm_model_config: dict):
         return {"messages": [response]}
 
     # Build the graph
-    builder = StateGraph(MessagesState)
+    builder = StateGraph(AgentState)
+
     builder.add_node("call_model", call_model)
     builder.add_node("tools", ToolNode(all_tools))
+
     builder.add_edge(START, "call_model")
     builder.add_conditional_edges("call_model", tools_condition)
     builder.add_edge("tools", "call_model")
