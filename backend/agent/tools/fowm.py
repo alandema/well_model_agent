@@ -1,6 +1,6 @@
 import csv
 import os
-import uuid
+import datetime
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -179,10 +179,21 @@ class FowmModelInput(BaseModel):
 @tool(
     args_schema=FowmModelInput,
     description=(
-        "FOWM (Fast Offshore Well Model) tool for simulating offshore well dynamics. "
-        "Use it to predict well behavior and pressures for a specified initial state, "
-        "time grid, gas injection rate, choke opening, separator pressure, reservoir "
-        "pressure, and model parameters."
+        """
+Use this tool to simulate or analyze offshore deepwater and ultra-deepwater petroleum production systems using the Fast Offshore Wells Model (FOWM)[cite: 1].
+
+WHEN TO USE:
+* The query requires fast, real-time performance for monitoring, control, or optimization without numerical stiffness[cite: 1].
+* The user needs a single, holistic model covering the entire system architecture (reservoir, tubing, gas lift annular, flowline, and riser)[cite: 1].
+* The scenario involves analyzing severe slugging (limit cycles) generated simultaneously by casing heading (gas lift) and terrain/riser topography[cite: 1].
+* The user needs estimations for unmeasured flow rates and pressures at key strategic points like PDG, TPT, and topside connections[cite: 1].
+
+WHEN TO PREFER OTHER MODELS (e.g., OLGA or rigorous PDE simulators):
+* The query strictly requires momentum and energy conservation balances, as FOWM relies solely on mass conservation ODEs[cite: 1].
+* The user needs spatial variations of states within a control volume (PDEs) rather than a simplified lumped-parameter model[cite: 1].
+* The analysis requires pressure drops calculated as a function of fluid velocities[cite: 1].
+* The focus is on minor hydrodynamic slugs (wave formation due to phase slip) rather than severe slugging limit cycles[cite: 1].
+"""
     ),
 )
 def fowm_model(
@@ -206,20 +217,24 @@ def fowm_model(
     if param is None:
         param = DEFAULT_PARAM
 
-    sol, outputs = run_model(
-        fowm,
-        x0,
-        t,
-        gas_injection_rate,
-        choke_opening,
-        separator_pressure,
-        reservoir_pressure,
-        param,
-    )
+    try:
+        sol, outputs = run_model(
+            fowm,
+            x0,
+            t,
+            gas_injection_rate,
+            choke_opening,
+            separator_pressure,
+            reservoir_pressure,
+            param,
+        )
+    except Exception as e:
+        return f"Error running FOWM model: {str(e)}"
 
     # Build the CSV: one row per time point with t, states, then pressures.
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    file_path = os.path.join(OUTPUT_DIR, f"fowm_{uuid.uuid4().hex}.csv")
+    file_path = os.path.join(
+        OUTPUT_DIR, f"fowm_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
     pressure_keys = list(outputs[0].keys())
     header = ["t", "x1", "x2", "x3", "x4", "x5", "x6"] + pressure_keys
@@ -232,4 +247,4 @@ def fowm_model(
                                            for k in pressure_keys]
             writer.writerow(row)
 
-    return os.path.abspath(file_path)
+    return f"Results saved to {os.path.abspath(file_path)}"
