@@ -1,6 +1,7 @@
 import csv
 import os
 import datetime
+from typing import Optional
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -117,7 +118,7 @@ def fowm(
 
 class FowmModelInput(BaseModel):
     """Input schema for the FOWM model tool."""
-    x0: list[float] = Field(
+    x0: Optional[list[float]] = Field(
         default=None,
         description="Initial state variables [x1..x6]. If omitted, the default FOWM initial state is used.",
     )
@@ -242,7 +243,7 @@ def fowm_model(
     Ka: float,
     Kr: float,
     runtime: ToolRuntime,
-    x0: list[float] = None,
+    x0: Optional[list[float]] = None,
 ) -> str:
     """Run the FOWM model and write the results to a CSV file.
 
