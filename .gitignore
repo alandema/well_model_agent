@@ -1,5 +1,6 @@
 .env
 fowm_code.py
+prompt.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
