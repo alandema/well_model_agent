@@ -11,24 +11,6 @@ CHAT_URL = f"{API_BASE_URL}/chat"
 
 st.title("Well Model Agent")
 
-st.sidebar.header("Simulation settings")
-integration_time = st.sidebar.number_input(
-    "Integration time",
-    min_value=1.0,
-    value=100000.0,
-    step=1000.0,
-    format="%.0f",
-    key="integration_time",
-)
-time_points = st.sidebar.number_input(
-    "Time points",
-    min_value=2,
-    value=1001,
-    step=1,
-    format="%d",
-    key="time_points",
-)
-
 # Initialize chat history and thread id
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -54,8 +36,6 @@ if prompt := st.chat_input("Ask the well model agent..."):
                 payload = {
                     "message": prompt,
                     "thread_id": st.session_state.thread_id,
-                    "integration_time": integration_time,
-                    "time_points": time_points,
                 }
                 resp = requests.post(CHAT_URL, json=payload, timeout=120)
                 resp.raise_for_status()

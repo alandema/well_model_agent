@@ -6,6 +6,7 @@ import numpy as np
 from pydantic import BaseModel, Field
 from langchain.tools import tool
 from langgraph.prebuilt import ToolRuntime
+import pint
 
 from agent.services.model_runner import run_model
 
@@ -109,8 +110,26 @@ def fowm(
     return dx, outputs
 
 
+class PhysicalValue(BaseModel):
+    """A physical value with a unit."""
+    value: float = Field(...,
+                         description="The numerical value of the physical quantity.")
+    unit: str = Field(...,
+                      description="The unit of the physical quantity as per Pint python library (e.g., 'Pa', 'm³/day').")
+
+
 class FowmModelInput(BaseModel):
     """Input schema for the FOWM model tool."""
+    integration_time: float = Field(
+        default=100000.0,
+        gt=0,
+        description="Simulation duration in seconds.",
+    )
+    time_points: int = Field(
+        default=1001,
+        ge=2,
+        description="Number of time points to calculate, including the initial point.",
+    )
     x0: list[float] = Field(
         default=(np.multiply(1e4, [
             0.762949953300966, 0.150646645264105, 2.024926259090548,
@@ -118,90 +137,53 @@ class FowmModelInput(BaseModel):
         ])).tolist(),
         description="Initial state variables [x1..x6].",
     )
-    gas_injection_rate: float = Field(
-        default=165000.0,
-        ge=0.0,
-        description=(
-            "Gas injection rate at standard conditions, in m³/day. "
-            "This is the gas injected into the annulus for gas lift."
-        ),
+    gas_injection_rate: PhysicalValue = Field(
+        default=PhysicalValue(value=165000.0, unit="m^3/day"),
+        description="Gas injected into the annulus for gas lift.",
     )
-    choke_opening: float = Field(
-        default=16.0,
-        ge=0.0,
-        le=100.0,
-        description=(
-            "Production choke opening as a percentage from 0 to 100. "
-            "For example, 16 means the choke is 16% open."
-        ),
+    choke_opening: PhysicalValue = Field(
+        default=PhysicalValue(value=16.0, unit="percent"),
+        description="Production choke opening.",
     )
-    separator_pressure: float = Field(
-        default=101325.0,
-        gt=0.0,
-        description=(
-            "Pressure at the separator or riser outlet, in Pa. "
-            "This is the model's downstream pressure (Ps)."
-        ),
+    separator_pressure: PhysicalValue = Field(
+        default=PhysicalValue(value=101325.0, unit="Pa"),
+        description="Downstream pressure at the separator or riser outlet.",
     )
-    reservoir_pressure: float = Field(
-        default=2.25e7,
-        gt=0.0,
-        description=(
-            "Reservoir pressure driving production inflow, in Pa. "
-            "This is the model's reservoir pressure (Pr)."
-        ),
+    reservoir_pressure: PhysicalValue = Field(
+        default=PhysicalValue(value=2.25e7, unit="Pa"),
+        description="Reservoir pressure driving production inflow.",
     )
-    mlstill: float = Field(
-        default=7.11e2,
-        description=(
-            "Still-liquid mass in the riser, in kg. This parameter is added to the "
-            "riser liquid mass when calculating riser pressures."
-        ),
+    mlstill: PhysicalValue = Field(
+        default=PhysicalValue(value=7.11e2, unit="kg"),
+        description="Retained liquid mass in the riser.",
     )
-    Cg: float = Field(
-        default=2.35e-7,
-        ge=0.0,
-        description=(
-            "Gas transfer coefficient from the expanded bubble to the riser, used "
-            "to calculate the gas flow rate Wg."
-        ),
+    Cg: PhysicalValue = Field(
+        default=PhysicalValue(value=2.35e-7, unit="kg / (Pa * s)"),
+        description="Expanded-bubble-to-riser gas transfer coefficient.",
     )
-    Cout: float = Field(
-        default=5.81e-5,
-        ge=0.0,
-        description=(
-            "Riser outlet flow coefficient, used with choke opening and the "
-            "pressure difference to calculate the outlet flow."
-        ),
+    Cout: PhysicalValue = Field(
+        default=PhysicalValue(value=5.81e-5, unit="m^2"),
+        description="Riser outlet flow coefficient.",
     )
-    Veb: float = Field(
-        default=0.9016,
-        gt=0.0,
-        description="Expanded-bubble volume, in m³, used to calculate bubble pressure.",
+    Veb: PhysicalValue = Field(
+        default=PhysicalValue(value=0.9016, unit="m^3"),
+        description="Expanded-bubble volume.",
     )
-    E: float = Field(
-        default=0.000358225582262,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Fraction of wellhead gas flow transferred into the riser gas inventory "
-            "instead of the expanded bubble."
-        ),
+    E: PhysicalValue = Field(
+        default=PhysicalValue(value=0.000358225582262, unit="dimensionless"),
+        description="Wellhead gas fraction bypassing the expanded bubble.",
     )
-    Kw: float = Field(
-        default=1.021205376e-5,
-        ge=0.0,
-        description="Wellhead flow coefficient used to calculate tubing-to-riser flow.",
+    Kw: PhysicalValue = Field(
+        default=PhysicalValue(value=1.021205376e-5, unit="m^2"),
+        description="Wellhead flow coefficient.",
     )
-    Ka: float = Field(
-        default=1.766624933e-6,
-        ge=0.0,
-        description="Annulus flow coefficient used to calculate injected-gas flow into the tubing.",
+    Ka: PhysicalValue = Field(
+        default=PhysicalValue(value=1.766624933e-6, unit="m^2"),
+        description="Annulus-to-tubing gas flow coefficient.",
     )
-    Kr: float = Field(
-        default=2.467164730000336e-6,
-        ge=0.0,
-        description="Reservoir inflow coefficient used to calculate the reservoir flow rate.",
+    Kr: PhysicalValue = Field(
+        default=PhysicalValue(value=2.467164730000336e-6, unit="kg / s"),
+        description="Reservoir inflow coefficient.",
     )
 
 
@@ -226,18 +208,20 @@ WHEN TO PREFER OTHER MODELS (e.g., OLGA or rigorous PDE simulators):
     ),
 )
 def fowm_model(
-    gas_injection_rate: float,
-    choke_opening: float,
-    separator_pressure: float,
-    reservoir_pressure: float,
-    mlstill: float,
-    Cg: float,
-    Cout: float,
-    Veb: float,
-    E: float,
-    Kw: float,
-    Ka: float,
-    Kr: float,
+    integration_time: float,
+    time_points: int,
+    gas_injection_rate: PhysicalValue,
+    choke_opening: PhysicalValue,
+    separator_pressure: PhysicalValue,
+    reservoir_pressure: PhysicalValue,
+    mlstill: PhysicalValue,
+    Cg: PhysicalValue,
+    Cout: PhysicalValue,
+    Veb: PhysicalValue,
+    E: PhysicalValue,
+    Kw: PhysicalValue,
+    Ka: PhysicalValue,
+    Kr: PhysicalValue,
     runtime: ToolRuntime,
     x0: list[float],
 ) -> str:
@@ -246,13 +230,17 @@ def fowm_model(
     Returns the absolute path to the generated CSV file.
     """
 
-    integration_time = runtime.config["configurable"]["integration_time"]
-    time_points = runtime.config["configurable"]["time_points"]
-
-    params = [separator_pressure, reservoir_pressure, gas_injection_rate,
-              choke_opening, mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr]
-
     try:
+        ureg = pint.UnitRegistry()
+        values = [separator_pressure, reservoir_pressure, gas_injection_rate,
+                  choke_opening, mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr]
+        target_units = ["Pa", "Pa", "m^3/day", "percent", "kg",
+                        "kg / (Pa * s)", "m^2", "m^3", "dimensionless",
+                        "m^2", "m^2", "kg / s"]
+        params = [
+            (value.value * ureg(value.unit)).to(unit).magnitude
+            for value, unit in zip(values, target_units)
+        ]
         sol, outputs, t = run_model(
             fowm,
             x0,
@@ -279,4 +267,4 @@ def fowm_model(
                                            for k in pressure_keys]
             writer.writerow(row)
 
-    return f"Results saved to {os.path.abspath(file_path)}"
+    return f"Results saved to {os.path.abspath(file_path)}. The CSV contains columns: {', '.join(header)}."

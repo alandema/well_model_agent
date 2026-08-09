@@ -11,7 +11,7 @@ The agent uses the free `poolside/laguna-s-2.1:free` model through OpenRouter.
 - **Model provider**: `langchain-openrouter` with the model and system prompt configured in `backend/agent/prompts/config.json`.
 - **FOWM tool**: Integrates the six-state ODE model with SciPy's `odeint`, calculates pressures, and writes simulation results to a CSV file.
 - **Conversation persistence**: LangGraph uses a SQLite checkpointer at `backend/.checkpoints/checkpoints.sqlite`, with `thread_id` used to continue a conversation.
-- **Frontend**: Streamlit chat UI with sidebar controls for integration time and number of time points.
+- **Frontend**: Streamlit chat UI. Simulation settings are selected by the agent through the FOWM tool parameters.
 - **Deployment**: Docker Compose runs the backend and frontend services together.
 
 ## Prerequisites
@@ -118,16 +118,14 @@ Returns the backend health status:
 
 ### `POST /chat`
 
-Runs the agent and returns the completed response. `integration_time` and `time_points` are required because they are passed to the FOWM tool through the LangGraph runtime configuration.
+Runs the agent and returns the completed response. The FOWM simulation settings are supplied as tool parameters selected by the agent.
 
 Request:
 
 ```json
 {
   "message": "Simulate the well with the default model parameters.",
-  "thread_id": null,
-  "integration_time": 100000,
-  "time_points": 1001
+  "thread_id": null
 }
 ```
 
@@ -148,8 +146,6 @@ Example using PowerShell:
 ```powershell
 $body = @{
   message = "Simulate the well with the default model parameters."
-  integration_time = 100000
-  time_points = 1001
 } | ConvertTo-Json
 
 Invoke-RestMethod -Method Post -Uri http://localhost:8000/chat `
@@ -171,10 +167,12 @@ The `fowm_model` tool accepts the following model inputs:
 - Reservoir pressure.
 - FOWM parameters `mlstill`, `Cg`, `Cout`, `Veb`, `E`, `Kw`, `Ka`, and `Kr`.
 
-The integration controls are supplied by the API request:
+Simulation controls are also parameters of the `fowm_model` tool:
 
 - `integration_time` must be greater than zero.
 - `time_points` must be at least `2`.
+
+Both controls default to `100000` seconds and `1001` time points when the agent does not specify them. They are no longer part of the frontend or API request configuration.
 
 Each successful simulation writes a CSV file containing time, six state variables, and the calculated `Ppdg`, `Ptt`, `Prt`, and `Prb` pressures to `backend/.outputs/`.
 

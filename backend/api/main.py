@@ -2,7 +2,7 @@ import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from agent.graph import create_graph
 from agent.services.config import load_config
 from langchain_core.messages import HumanMessage
@@ -25,8 +25,6 @@ graph = create_graph(
 class ChatRequest(BaseModel):
     message: str
     thread_id: str | None = None
-    integration_time: float = Field(gt=0)
-    time_points: int = Field(ge=2)
 
 
 class ChatResponse(BaseModel):
@@ -40,8 +38,6 @@ class ResumeRequest(BaseModel):
     action: str  # "approve", "edit", or "reject"
     args: dict | None = None  # Edited args (only for "edit")
     reason: str | None = None  # Rejection reason (only for "reject")
-    integration_time: float = Field(gt=0)
-    time_points: int = Field(ge=2)
 
 
 @app.get("/")
@@ -60,8 +56,6 @@ async def chat(request: ChatRequest):
     config = {
         "configurable": {
             "thread_id": thread_id,
-            "integration_time": request.integration_time,
-            "time_points": request.time_points,
         }
     }
 
@@ -100,8 +94,6 @@ async def chat_stream(request: ChatRequest):
     config = {
         "configurable": {
             "thread_id": thread_id,
-            "integration_time": request.integration_time,
-            "time_points": request.time_points,
         }
     }
 
@@ -130,8 +122,6 @@ async def resume_chat(request: ResumeRequest):
     config = {
         "configurable": {
             "thread_id": request.thread_id,
-            "integration_time": request.integration_time,
-            "time_points": request.time_points,
         }
     }
 
