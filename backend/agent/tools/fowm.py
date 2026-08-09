@@ -1,7 +1,6 @@
 import csv
 import os
 import datetime
-from typing import Optional
 
 import numpy as np
 from pydantic import BaseModel, Field
@@ -12,12 +11,6 @@ from agent.services.model_runner import run_model
 
 # Directory where model outputs are written as CSV files.
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
-
-# Default initial state (from the reference FOWM script).
-DEFAULT_X0 = (np.multiply(1e4, [
-    0.762949953300966, 0.150646645264105, 2.024926259090548,
-    0.213535823438009, 0.113058624767771, 1.519684541979486,
-])).tolist()
 
 
 def fowm(
@@ -118,9 +111,12 @@ def fowm(
 
 class FowmModelInput(BaseModel):
     """Input schema for the FOWM model tool."""
-    x0: Optional[list[float]] = Field(
-        default=None,
-        description="Initial state variables [x1..x6]. If omitted, the default FOWM initial state is used.",
+    x0: list[float] = Field(
+        default=(np.multiply(1e4, [
+            0.762949953300966, 0.150646645264105, 2.024926259090548,
+            0.213535823438009, 0.113058624767771, 1.519684541979486,
+        ])).tolist(),
+        description="Initial state variables [x1..x6].",
     )
     gas_injection_rate: float = Field(
         default=165000.0,
@@ -243,15 +239,12 @@ def fowm_model(
     Ka: float,
     Kr: float,
     runtime: ToolRuntime,
-    x0: Optional[list[float]] = None,
+    x0: list[float],
 ) -> str:
     """Run the FOWM model and write the results to a CSV file.
 
     Returns the absolute path to the generated CSV file.
     """
-
-    if x0 is None:
-        x0 = DEFAULT_X0
 
     integration_time = runtime.config["configurable"]["integration_time"]
     time_points = runtime.config["configurable"]["time_points"]
