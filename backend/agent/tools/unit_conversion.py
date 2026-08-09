@@ -13,6 +13,7 @@ class InputUnit(BaseModel):
 
 
 @tool(
+    args_schema=InputUnit,
     description="Uses Pint python library to convert a numerical value from one unit to another.",
     return_direct=True,
 )
