@@ -2,9 +2,6 @@ import os
 
 import requests
 import streamlit as st
-from dotenv import load_dotenv
-
-load_dotenv()
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 CHAT_URL = f"{API_BASE_URL}/chat"

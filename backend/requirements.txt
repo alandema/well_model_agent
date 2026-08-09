@@ -2,9 +2,8 @@ langgraph
 langchain
 langgraph-checkpoint-sqlite
 langchain-openrouter
-langchain-google-genai
+tavily
 fastapi[standard]
-python-dotenv
 numpy
 scipy
 matplotlib

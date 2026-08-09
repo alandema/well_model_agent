@@ -7,11 +7,11 @@ from agent.graph import create_graph
 from agent.services.config import load_config
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
-from dotenv import load_dotenv
+
 import uuid
 
 this_file_path = os.path.abspath(__file__)
-load_dotenv()
+
 
 app = FastAPI()
 

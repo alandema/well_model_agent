@@ -8,9 +8,10 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 
 from agent.tools.fowm import fowm_model
+from agent.tools.web_search import web_search
 # from agent.tools.unit_conversion import convert_units
 
-all_tools = [fowm_model]
+all_tools = [fowm_model, web_search]  # , convert_units]
 
 
 def create_graph(llm_model_config: dict):

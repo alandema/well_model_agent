@@ -14,26 +14,7 @@ from agent.services.model_runner import run_model
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
 
 
-def fowm(
-    initial_conditions,
-    t,
-    params
-):
-    """FOWM (Fast Offshore Well Model) dynamics and pressures.
-
-    Returns a tuple `(dx, outputs)` where:
-        - `dx` is the list of state derivatives (mass balances).
-        - `outputs` is a dict of pressures computed from the state.
-
-    Args:
-        x: state variables [x1..x6].
-        t: time (unused, the model is time-invariant).
-        gas_injection_rate: Gas injection rate at standard conditions, in m³/day.
-        choke_opening: Production choke opening, as a percentage from 0 to 100.
-        separator_pressure: Separator pressure, in Pa.
-        reservoir_pressure: Reservoir pressure, in Pa.
-        param: parameters [mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr].
-    """
+def fowm(initial_conditions, t, params):
     x1, x2, x3, x4, x5, x6 = initial_conditions
     separator_pressure, reservoir_pressure, gas_injection_rate, choke_opening, mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr = params
 
