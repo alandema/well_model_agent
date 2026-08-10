@@ -2,34 +2,38 @@
 
 Well Model Agent is a containerized FastAPI and Streamlit application that uses a LangGraph agent to answer questions about offshore well production and run the Fast Offshore Well Model (FOWM).
 
-The agent uses the free `poolside/laguna-s-2.1:free` model through OpenRouter.
+The agent uses the `poolside/laguna-s-2.1:free` model (because it is free - Using a better model will definitely make it better.) through OpenRouter. The configured model uses temperature `0` and high reasoning effort; see `backend/agent/prompts/config.json`.
 
 ## Current architecture
 
 - **Backend**: FastAPI application served by Uvicorn.
-- **Agent**: LangGraph workflow containing a model node and a tool node. The workflow can call the FOWM simulation tool and loops back to the model after tool execution.
+- **Agent**: LangGraph workflow containing model, tool, and stop nodes. It can call the FOWM simulation, web search, CSV analysis, CSV reading, and terminal tools, then loops back to the model after tool execution. The workflow stops after more than three tool rounds for a single user request.
 - **Model provider**: `langchain-openrouter` with the model and system prompt configured in `backend/agent/prompts/config.json`.
-- **FOWM tool**: Integrates the six-state ODE model with SciPy's `odeint`, calculates pressures, and writes simulation results to a CSV file.
-- **Conversation persistence**: LangGraph uses a SQLite checkpointer at `backend/.checkpoints/checkpoints.sqlite`, with `thread_id` used to continue a conversation.
-- **Frontend**: Streamlit chat UI. Simulation settings are selected by the agent through the FOWM tool parameters.
+- **FOWM tool**: Integrates the six-state ODE model with SciPy's `odeint`, converts physical inputs with Pint, calculates pressures, and writes simulation results to a CSV file.
+- **Conversation persistence**: LangGraph uses a SQLite checkpointer at `backend/agent/.checkpoints/checkpoints.sqlite`, with `thread_id` used to continue a conversation.
+- **Frontend**: Streamlit chat UI that calls `POST /chat`. It keeps the current `thread_id` in Streamlit session state.
 - **Deployment**: Docker Compose runs the backend and frontend services together.
 
 ## Prerequisites
 
-- Docker Desktop with Docker Compose, or Python 3.11+ for local development.
+- Docker Desktop with Docker Compose, or Python 3.11+ for local frontend development. The backend image currently uses Python 3.14; use a compatible Python version when running the backend outside Docker.
 - An OpenRouter API key.
+- A Tavily API key is optional and enables the web-search tool.
 
 ## Configuration
 
-Create `backend/.env` from the checked-in example:
+Create `backend/.env` from `backend/.env.example`:
 
 ```text
 OPENROUTER_API_KEY=your_openrouter_api_key
 
+# Optional web search
+TAVILY_API_KEY=your_tavily_api_key
+
 # Optional LangSmith tracing
-LANGSMITH_TRACING_V2=false
+LANGSMITH_TRACING_V2=
 LANGSMITH_API_KEY=
-LANGSMITH_PROJECT=well-model-agent
+LANGSMITH_PROJECT=
 ```
 
 Do not commit `.env` files or API keys. The repository ignores environment files.
@@ -42,7 +46,7 @@ API_BASE_URL=http://backend:8000
 
 For a frontend running directly on the host, use `API_BASE_URL=http://localhost:8000` instead.
 
-The model provider, model ID, temperature, reasoning effort, and system prompt are configured in `backend/agent/prompts/config.json`.
+The model provider, model ID, temperature, reasoning effort, and system prompt are configured in `backend/agent/prompts/config.json`. `LANGSMITH_TRACING_V2`, `LANGSMITH_API_KEY`, and `LANGSMITH_PROJECT` are documented optional settings, but this application does not explicitly initialize LangSmith; configure tracing according to the LangChain/LangSmith environment-variable behavior if you use it.
 
 ## Run with Docker Compose
 
@@ -65,7 +69,7 @@ The services are available at:
 - **Swagger API documentation**: <http://localhost:8000/docs>
 - **ReDoc API documentation**: <http://localhost:8000/redoc>
 
-The Compose configuration mounts the local `backend` and `frontend` directories into the containers, so generated checkpoints and CSV output remain in the project directory during development.
+The Compose configuration mounts the local `backend` and `frontend` directories into the containers. The backend writes checkpoints to `/app/agent/.checkpoints` and FOWM CSV files to `/app/agent/.outputs`, which correspond to `backend/agent/.checkpoints` and `backend/agent/.outputs` on the host. These directories are ignored by Git.
 
 ## Run locally without Docker
 
@@ -76,10 +80,10 @@ From the repository root, create or activate a Python environment, install the b
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn api.main:app --reload
+uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The backend loads `backend/.env` and listens on <http://localhost:8000>.
+The backend image and local process both expect imports to resolve from `backend`; run the command from that directory. The application reads environment variables from the process environment; the repository does not currently load `backend/.env` itself, so export the variables or use an environment loader before starting it locally. It listens on <http://localhost:8000>.
 
 ### Frontend
 
@@ -90,7 +94,7 @@ cd frontend
 pip install -r requirements.txt
 ```
 
-Set `API_BASE_URL=http://localhost:8000` in `frontend/.env`, then start Streamlit:
+Create `frontend/.env` from `frontend/.env.example`. Set `API_BASE_URL=http://localhost:8000` for a host-run frontend (the example currently contains `localhost:8000` without the URL scheme), then start Streamlit:
 
 ```bash
 streamlit run app/main.py
@@ -118,7 +122,7 @@ Returns the backend health status:
 
 ### `POST /chat`
 
-Runs the agent and returns the completed response. The FOWM simulation settings are supplied as tool parameters selected by the agent.
+Runs the agent and returns the completed response. The agent selects tool parameters, including FOWM simulation settings, from the conversation. The request body contains only the user message and optional conversation thread ID.
 
 Request:
 
@@ -139,7 +143,7 @@ Response:
 }
 ```
 
-Use the returned `thread_id` in subsequent requests to preserve the LangGraph conversation state. The `interrupt` field is populated if a tool execution pauses for human approval.
+Use the returned `thread_id` in subsequent requests to preserve the LangGraph conversation state. The response model includes an `interrupt` field, but the current `/chat` implementation does not populate it from graph state. Human-in-the-loop resume support is defined internally but is not exposed as a route, so approval is not currently available through the public API.
 
 Example using PowerShell:
 
@@ -154,27 +158,34 @@ Invoke-RestMethod -Method Post -Uri http://localhost:8000/chat `
 
 ### `POST /chat/stream`
 
-Streams generated text as `text/plain`. After the response text, the endpoint emits a metadata line beginning with `__META__:` containing the `thread_id` and, when applicable, an interrupt payload.
+Runs the same graph as `/chat` and returns `text/plain`. The endpoint currently yields the completed response as one chunk rather than token-by-token. After the response, it emits a metadata line beginning with `__META__:` containing JSON with the `thread_id`. The current implementation does not include an interrupt payload in this metadata.
 
 ## FOWM simulation
 
-The `fowm_model` tool accepts the following model inputs:
+The `fowm_model` tool accepts the following inputs. Physical values are objects with a numeric `value` and a Pint-compatible `unit`:
 
 - Initial state `x0` (optional; a default six-state initial condition is used when omitted).
-- Gas injection rate.
-- Choke opening percentage.
-- Separator pressure.
-- Reservoir pressure.
-- FOWM parameters `mlstill`, `Cg`, `Cout`, `Veb`, `E`, `Kw`, `Ka`, and `Kr`.
+- `gas_injection_rate` (default `165000 m^3/day`).
+- `choke_opening` (default `16 percent`).
+- `separator_pressure` (default `101325 Pa`).
+- `reservoir_pressure` (default `2.25e7 Pa`).
+- FOWM parameters `mlstill`, `Cg`, `Cout`, `Veb`, `E`, `Kw`, `Ka`, and `Kr`, each with a default defined in `backend/agent/tools/fowm_model.py`.
 
 Simulation controls are also parameters of the `fowm_model` tool:
 
 - `integration_time` must be greater than zero.
 - `time_points` must be at least `2`.
 
-Both controls default to `100000` seconds and `1001` time points when the agent does not specify them. They are no longer part of the frontend or API request configuration.
+Both controls default to `100000` seconds and `1001` time points when the agent does not specify them. They are not direct frontend or API request fields; they are tool arguments selected by the agent.
 
-Each successful simulation writes a CSV file containing time, six state variables, and the calculated `Ppdg`, `Ptt`, `Prt`, and `Prb` pressures to `backend/.outputs/`.
+Each successful simulation writes a timestamped CSV file containing `t`, six state variables (`x1` through `x6`), and the calculated `Ppdg`, `Ptt`, `Prt`, and `Prb` pressures to `backend/agent/.outputs/`. The tool returns the absolute path inside the container, for example `/app/agent/.outputs/fowm_YYYY-MM-DD_HH-MM-SS.csv`. The `summarize_csv` and `read_csv` tools accept these container paths.
+
+The other registered tools are:
+
+- `summarize_csv` — summarizes numeric CSV columns.
+- `read_csv` — reads selected CSV columns and rows as a Markdown table.
+- `web_search` — searches Tavily when `TAVILY_API_KEY` is configured.
+- `terminal` — executes shell commands from the backend process with a 30-second timeout; use this capability cautiously.
 
 ## Project structure
 
@@ -194,7 +205,13 @@ well_model_agent/
 │   │   │   ├── config.py
 │   │   │   ├── llm_model_factory.py
 │   │   │   └── model_runner.py      # SciPy ODE integration helper
-│   │   └── tools/fowm.py             # FOWM equations and LangChain tool
+│   │   └── tools/
+│   │       ├── fowm_model.py         # FOWM equations and LangChain tool
+│   │       ├── read_csv.py
+│   │       ├── summarize_csv.py
+│   │       ├── terminal.py
+│   │       ├── unit_conversion.py
+│   │       └── web_search.py
 │   └── api/main.py                   # FastAPI routes
 ├── frontend/
 │   ├── Dockerfile
@@ -205,8 +222,8 @@ well_model_agent/
 
 Generated runtime data is stored in ignored directories:
 
-- `backend/.checkpoints/` — SQLite conversation checkpoints.
-- `backend/.outputs/` — FOWM CSV results.
+- `backend/agent/.checkpoints/` — SQLite conversation checkpoints.
+- `backend/agent/.outputs/` — FOWM CSV results.
 
 ## Stop the application
 
