@@ -59,31 +59,23 @@ async def chat(request: ChatRequest):
         }
     }
 
-    stream = graph.stream_events(
+    result = graph.invoke(
         {"messages": [HumanMessage(content=request.message)]},
         config=config,
-        version="v3",
     )
-
-    last_message = ""
-    for message in list(stream.messages):
-        last_message += str(message.text)
-
-    if stream.interrupted:
-        interrupt_data = stream.interrupts[0].value
-        return ChatResponse(
-            response=last_message,
-            thread_id=thread_id,
-            interrupt=interrupt_data,
-        )
-
-    return ChatResponse(response=last_message, thread_id=thread_id)
+    response = ""
+    for message in reversed(result.get("messages", [])):
+        text = getattr(message, "text", "")
+        if getattr(message, "type", None) == "ai" and not getattr(
+                message, "tool_calls", None) and text.strip():
+            response = text
+            break
+    return ChatResponse(response=response, thread_id=thread_id)
 
 
 @app.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
-    """Stream the assistant response token-by-token using LangGraph event
-    streaming (stream_events version="v3", stream.messages projection).
+    """Return the final assistant response after the graph completes.
 
     The response is plain text streamed as it is generated. After the text
     finishes, a final line prefixed with `__META__:` carries the thread_id
@@ -98,20 +90,22 @@ async def chat_stream(request: ChatRequest):
     }
 
     def token_generator():
-        stream = graph.stream_events(
+        result = graph.invoke(
             {"messages": [HumanMessage(content=request.message)]},
-            config=config
+            config=config,
         )
-
-        for message in stream.messages:
-            for token in message.text:
-                yield token
+        response = ""
+        for message in reversed(result.get("messages", [])):
+            text = getattr(message, "text", "")
+            if getattr(message, "type", None) == "ai" and not getattr(
+                    message, "tool_calls", None) and text.strip():
+                response = text
+                break
+        yield response
 
         # After the run finishes (or pauses), send metadata the frontend needs.
         import json
         meta = {"thread_id": thread_id}
-        if stream.interrupted:
-            meta["interrupt"] = stream.interrupts[0].value
         yield f"\n__META__:{json.dumps(meta)}"
 
     return StreamingResponse(token_generator(), media_type="text/plain")
@@ -136,22 +130,15 @@ async def resume_chat(request: ResumeRequest):
         raise HTTPException(
             status_code=400, detail=f"Unknown action: {request.action}")
 
-    stream = graph.stream_events(
+    result = graph.invoke(
         Command(resume=resume_value),
         config=config,
-        version="v3",
     )
-
-    last_message = ""
-    for message in list(stream.messages):
-        last_message += str(message.text)
-
-    if stream.interrupted:
-        interrupt_data = stream.interrupts[0].value
-        return ChatResponse(
-            response=last_message,
-            thread_id=request.thread_id,
-            interrupt=interrupt_data,
-        )
-
-    return ChatResponse(response=last_message, thread_id=request.thread_id)
+    response = ""
+    for message in reversed(result.get("messages", [])):
+        text = getattr(message, "text", "")
+        if getattr(message, "type", None) == "ai" and not getattr(
+                message, "tool_calls", None) and text.strip():
+            response = text
+            break
+    return ChatResponse(response=response, thread_id=request.thread_id)

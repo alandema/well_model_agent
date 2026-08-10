@@ -11,7 +11,7 @@ class TerminalCommandInput(BaseModel):
     args_schema=TerminalCommandInput,
     description="Run a shell command on the terminal and return the output.",
 )
-def run_terminal_command(command: str) -> str:
+def terminal(command: str) -> str:
     """Run a shell command on the terminal and return the output."""
     try:
         result = subprocess.run(

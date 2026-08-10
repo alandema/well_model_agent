@@ -10,15 +10,17 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from agent.tools.fowm_model import fowm_model
 from agent.tools.web_search import web_search
+from agent.tools.summarize_csv import summarize_csv
 from agent.tools.read_csv import read_csv
+from agent.tools.terminal import terminal
 # from agent.tools.unit_conversion import convert_units
 
-all_tools = [fowm_model, web_search, read_csv]  # , convert_units]
-MAX_CALLS_PER_TOOL = 3
+all_tools = [fowm_model, web_search, summarize_csv, read_csv, terminal]
+MAX_TOOL_ROUNDS = 3
 
 
 def route_after_model(state: AgentState):
-    """Stop if the model requests the same tool more than three times."""
+    """Stop before the model starts a fourth tool round."""
     last_message = state["messages"][-1]
     current_tool_calls = getattr(last_message, "tool_calls", None)
     if not current_tool_calls:
@@ -30,17 +32,11 @@ def route_after_model(state: AgentState):
             break
         messages_since_user.append(message)
 
-    tool_call_counts = {}
-    for message in messages_since_user:
-        for tool_call in getattr(message, "tool_calls", []):
-            tool_name = tool_call["name"]
-            tool_call_counts[tool_name] = tool_call_counts.get(
-                tool_name, 0) + 1
-
-    if any(
-        tool_call_counts.get(tool_call["name"], 0) > MAX_CALLS_PER_TOOL
-        for tool_call in current_tool_calls
-    ):
+    tool_rounds = sum(
+        bool(getattr(message, "tool_calls", None))
+        for message in messages_since_user
+    )
+    if tool_rounds > MAX_TOOL_ROUNDS:
         return "stop"
 
     return "tools"
@@ -68,8 +64,7 @@ def create_graph(llm_model_config: dict):
                 AIMessage(
                     content=(
                         "I stopped after reaching the maximum number of tool "
-                        "calls for one tool. Please clarify the request before "
-                        "trying again."
+                        "rounds. Please clarify the request before trying again."
                     )
                 )
             ]

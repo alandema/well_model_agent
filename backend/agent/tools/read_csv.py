@@ -41,7 +41,7 @@ class CSVReaderInput(BaseModel):
 
 @tool(
     args_schema=CSVReaderInput,
-    description="Reads a CSV file and returns its contents as a string.",
+    description="Reads a CSV file and returns its contents as a string. Prefer to use the summarize_csv tool. Only use this if you need to read the values directly.",
 )
 def read_csv(
     file_path: str,

@@ -112,10 +112,8 @@ class FowmModelInput(BaseModel):
         description="Number of time points to calculate, including the initial point.",
     )
     x0: list[float] = Field(
-        default=(np.multiply(1e4, [
-            0.762949953300966, 0.150646645264105, 2.024926259090548,
-            0.213535823438009, 0.113058624767771, 1.519684541979486,
-        ])).tolist(),
+        default=[7629.4886447, 1506.47068049, 20249.37406149,
+                 2135.35765486, 1130.58415814, 15196.85834102],
         description="Initial state variables [x1..x6].",
     )
     gas_injection_rate: PhysicalValue = Field(
@@ -135,35 +133,35 @@ class FowmModelInput(BaseModel):
         description="Reservoir pressure driving production inflow.",
     )
     mlstill: PhysicalValue = Field(
-        default=PhysicalValue(value=7.11e2, unit="kg"),
+        default=PhysicalValue(value=7.10982080e+02, unit="kg"),
         description="Retained liquid mass in the riser.",
     )
     Cg: PhysicalValue = Field(
-        default=PhysicalValue(value=2.35e-7, unit="kg / (Pa * s)"),
+        default=PhysicalValue(value=2.34607899e-05, unit="kg / (Pa * s)"),
         description="Expanded-bubble-to-riser gas transfer coefficient.",
     )
     Cout: PhysicalValue = Field(
-        default=PhysicalValue(value=5.81e-5, unit="m^2"),
+        default=PhysicalValue(value=5.81379357e-03, unit="m^2"),
         description="Riser outlet flow coefficient.",
     )
     Veb: PhysicalValue = Field(
-        default=PhysicalValue(value=0.9016, unit="m^3"),
+        default=PhysicalValue(value=9.01595194e+01, unit="m^3"),
         description="Expanded-bubble volume.",
     )
     E: PhysicalValue = Field(
-        default=PhysicalValue(value=0.000358225582262, unit="dimensionless"),
+        default=PhysicalValue(value=3.58225582e-02, unit="dimensionless"),
         description="Wellhead gas fraction bypassing the expanded bubble.",
     )
     Kw: PhysicalValue = Field(
-        default=PhysicalValue(value=1.021205376e-5, unit="m^2"),
+        default=PhysicalValue(value=1.02120538e-03, unit="m^2"),
         description="Wellhead flow coefficient.",
     )
     Ka: PhysicalValue = Field(
-        default=PhysicalValue(value=1.766624933e-6, unit="m^2"),
+        default=PhysicalValue(value=1.76662493e-04, unit="m^2"),
         description="Annulus-to-tubing gas flow coefficient.",
     )
     Kr: PhysicalValue = Field(
-        default=PhysicalValue(value=2.467164730000336e-6, unit="kg / s"),
+        default=PhysicalValue(value=2.46716473e+02, unit="kg / s"),
         description="Reservoir inflow coefficient.",
     )
 
@@ -203,7 +201,6 @@ def fowm_model(
     Kw: PhysicalValue,
     Ka: PhysicalValue,
     Kr: PhysicalValue,
-    runtime: ToolRuntime,
     x0: list[float],
 ) -> str:
     """Run the FOWM model and write the results to a CSV file.
