@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
@@ -24,3 +22,12 @@ services:
       - PYTHONPATH=/app
     env_file:
       - ./frontend/.env
+    
+  control_room:
+    build: ./control_room
+    ports:
+      - "8601:8601"
+    volumes:
+      - ./control_room:/app
+    environment:
+      - PYTHONPATH=/app
