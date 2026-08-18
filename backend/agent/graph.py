@@ -9,13 +9,14 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 
 from agent.tools.fowm_model import fowm_model
+from agent.tools.multi_well_model import multi_well_model
 from agent.tools.web_search import is_web_search_available, web_search
 from agent.tools.summarize_csv import summarize_csv
 from agent.tools.read_csv import read_csv
 from agent.tools.terminal import terminal
 # from agent.tools.unit_conversion import convert_units
 
-all_tools = [fowm_model, summarize_csv, read_csv, terminal]
+all_tools = [fowm_model, multi_well_model, summarize_csv, read_csv, terminal]
 if is_web_search_available():
     all_tools.append(web_search)
 MAX_TOOL_ROUNDS = 3
