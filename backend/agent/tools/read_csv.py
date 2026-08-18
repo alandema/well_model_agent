@@ -35,8 +35,8 @@ class CSVReaderInput(BaseModel):
     file_path: str = Field(..., description="Path to the CSV file to read.")
     columns: list[str] | None = Field(
         None, description="Optional list of columns to read from the CSV file. If not provided, all columns will be read.")
-    rows: Optional[tuple[int, int]] = Field(
-        None, description="Optional tuple specifying the range of rows to read (start, end). If not provided, all rows will be read.")
+    rows: list[int] | None = Field(
+        None, description="Optional list of two integers [start, end] specifying the range of rows to read. If not provided, all rows will be read.")
 
 
 @tool(
@@ -46,7 +46,7 @@ class CSVReaderInput(BaseModel):
 def read_csv(
     file_path: str,
     columns: list[str] | None = None,
-    rows: Optional[tuple[int, int]] = None,
+    rows: list[int] | None = None,
 ) -> str:
     try:
         adjusted_file_path = _adjust_file_path(file_path)
