@@ -231,7 +231,7 @@ def fowm_model(
     # Build the CSV: one row per time point with t, states, then pressures.
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     file_path = os.path.join(
-        OUTPUT_DIR, f"fowm_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv")
+        OUTPUT_DIR, f"fowm_{datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).strftime('%Y-%m-%d_%H-%M-%S')}.csv")
 
     pressure_keys = list(outputs[0].keys())
     header = ["t", "x1", "x2", "x3", "x4", "x5", "x6"] + pressure_keys
