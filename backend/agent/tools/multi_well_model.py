@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from langchain.tools import tool
 import pint
 
-from agent.services.model_runner import run_model
+from agent.services.model_runner import run_stiff
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
 
@@ -149,18 +149,64 @@ def default_well_parameters():
 
 
 def default_x0(well_count: int):
-    base_state = [
-        0.007371830553633,
-        0.001428291136850,
-        0.016951042814041,
-        0.002021569964029,
-        0.001184201653727,
-        0.014054511806949,
+    # From Dados_6Pold.m (first 6 states for each of the 6 wells, plus 2 header states)
+    well_states = [
+        [
+            0.007371830553633 * 1e6,
+            0.001428291136850 * 1e6,
+            0.016951042814041 * 1e6,
+            0.002021569964029 * 1e6,
+            0.001184201653727 * 1e6,
+            0.014054511806949 * 1e6,
+        ],
+        [
+            0.009912207160316 * 1e6,
+            0.005215537414924 * 1e6,
+            0.011123263153522 * 1e6,
+            0.002096473798538 * 1e6,
+            0.002528163432676 * 1e6,
+            0.005391837646180 * 1e6,
+        ],
+        [
+            0.009678410384208 * 1e6,
+            0.004195873764198 * 1e6,
+            0.014245455287811 * 1e6,
+            0.002126193070966 * 1e6,
+            0.002220003119176 * 1e6,
+            0.007537165893975 * 1e6,
+        ],
+        [
+            0.008561410454283 * 1e6,
+            0.002315476693005 * 1e6,
+            0.018313643808126 * 1e6,
+            0.002104166915800 * 1e6,
+            0.001523409475252 * 1e6,
+            0.012048992937728 * 1e6,
+        ],
+        [
+            0.007628969748398 * 1e6,
+            0.001690687298404 * 1e6,
+            0.017391630781485 * 1e6,
+            0.002010461760320 * 1e6,
+            0.001282923612724 * 1e6,
+            0.013197059384998 * 1e6,
+        ],
+        [
+            0.007799121005374 * 1e6,
+            0.001944069376985 * 1e6,
+            0.017259434462245 * 1e6,
+            0.001990461071670 * 1e6,
+            0.001382990468046 * 1e6,
+            0.012278190535320 * 1e6,
+        ],
     ]
     vector = []
-    for _ in range(well_count):
-        vector.extend(base_state)
-    vector.extend([1.0e6, 97.959709025643093])
+    for i in range(well_count):
+        if i < len(well_states):
+            vector.extend(well_states[i])
+        else:
+            vector.extend(well_states[-1])
+    vector.extend([1.307648174979114 * 1e6, 0.000138537805285 * 1e6])
     return vector
 
 
@@ -312,8 +358,8 @@ def model_well(xi, ui, param):
     ptt = rogt * 8314.0 * 298.0 / 18.0
     ptb = ptt + romt * 9.81 * 916.0
 
-    pai = ((8314.0 * 298.0 / (1118.0 * 18.0 * 0.140**2 * np.pi / 4.0)) +
-           (9.81 * 1118.0 / (0.140**2 * np.pi / 4.0))) * xi[3]
+    va = 1118.0 * 0.140**2 * np.pi / 4.0
+    pai = ((8314.0 * 298.0 / (va * 18.0)) + (9.81 * 1118.0 / va)) * xi[3]
     roai = max(1e-6, 18.0 * pai / (8314.0 * 298.0))
     wiv = ka * np.sqrt(roai * max(0.0, pai - ptb))
 
@@ -467,7 +513,7 @@ def multi_well_model(
             ],
         }
         state_vector = _normalize_x0(x0, well_count)
-        sol, outputs, t = run_model(
+        sol, outputs, t = run_stiff(
             multi_well, state_vector, integration_time, params, time_points)
     except Exception as e:
         return f"Error running multi-well model: {str(e)}"
@@ -475,7 +521,8 @@ def multi_well_model(
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     file_path = os.path.join(
         OUTPUT_DIR,
-        f"multi_well_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.csv",
+        # timezone must be Brazilia Standard Time (UTC-3) to match the original MATLAB output timestamp
+        f"multi_well_{datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).strftime('%Y-%m-%d_%H-%M-%S')}.csv",
     )
 
     state_names = [

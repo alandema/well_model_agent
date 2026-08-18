@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from langchain.tools import tool
 import pint
 
-from agent.services.model_runner import run_model
+from agent.services.model_runner import run_odeint
 
 # Directory where model outputs are written as CSV files.
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
@@ -218,7 +218,7 @@ def fowm_model(
             (value.value * ureg(value.unit)).to(unit).magnitude
             for value, unit in zip(values, target_units)
         ]
-        sol, outputs, t = run_model(
+        sol, outputs, t = run_odeint(
             fowm,
             x0,
             integration_time,
