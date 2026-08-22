@@ -204,7 +204,7 @@ def fowm_model(
     choke_opening: PhysicalValue,
     separator_pressure: PhysicalValue,
     reservoir_pressure: PhysicalValue,
-) -> str:
+) -> dict:
     """Run the FOWM model and write the results to a CSV file.
 
     Returns the absolute path to the generated CSV file.
@@ -252,4 +252,17 @@ def fowm_model(
                                            for k in pressure_keys]
             writer.writerow(row)
 
-    return f"Results saved to {os.path.abspath(file_path)}. The CSV contains columns: {', '.join(header)}."
+    # return f"Results saved to {os.path.abspath(file_path)}. The CSV contains columns: {', '.join(header)}."
+    return {
+        "file_path": os.path.abspath(file_path),
+        "columns": header,
+        "final_well_states": {
+            "x1": np.round(sol[-1, 0], 3),
+            "x2": np.round(sol[-1, 1], 3),
+            "x3": np.round(sol[-1, 2], 3),
+            "x4": np.round(sol[-1, 3], 3),
+            "x5": np.round(sol[-1, 4], 3),
+            "x6": np.round(sol[-1, 5], 3)
+        },
+        "message": f"Results saved to {os.path.abspath(file_path)}."
+    }
