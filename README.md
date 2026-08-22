@@ -2,13 +2,13 @@
 
 Well Model Agent is a containerized FastAPI and Streamlit application that uses a LangGraph agent to answer questions about offshore well production and run the Fast Offshore Well Model (FOWM).
 
-The agent uses the `poolside/laguna-s-2.1:free` model (because it is free - Using a better model will definitely make it better.) through OpenRouter. The configured model uses temperature `0` and high reasoning effort; see `backend/agent/prompts/config.json`.
+The agent uses the `poolside/laguna-s-2.1:free` model (because it is free - Using a better model will definitely make it better.) through OpenRouter. The configured model uses temperature `0` and high reasoning effort; see `backend/agent/configs/prompts.json`.
 
 ## Current architecture
 
 - **Backend**: FastAPI application served by Uvicorn.
 - **Agent**: LangGraph workflow containing model, tool, and stop nodes. It can call the FOWM simulation, web search, CSV analysis, CSV reading, and terminal tools, then loops back to the model after tool execution. The workflow stops after more than three tool rounds for a single user request.
-- **Model provider**: `langchain-openrouter` with the model and system prompt configured in `backend/agent/prompts/config.json`.
+- **Model provider**: `langchain-openrouter` with the model and system prompt configured in `backend/agent/configs/prompts.json`.
 - **FOWM tool**: Integrates the six-state ODE model with SciPy's `odeint`, converts physical inputs with Pint, calculates pressures, and writes simulation results to a CSV file.
 - **Conversation persistence**: LangGraph uses a SQLite checkpointer at `backend/agent/.checkpoints/checkpoints.sqlite`, with `thread_id` used to continue a conversation.
 - **Frontend**: Streamlit chat UI that calls `POST /chat`. It keeps the current `thread_id` in Streamlit session state.
@@ -46,7 +46,7 @@ API_BASE_URL=http://backend:8000
 
 For a frontend running directly on the host, use `API_BASE_URL=http://localhost:8000` instead.
 
-The model provider, model ID, temperature, reasoning effort, and system prompt are configured in `backend/agent/prompts/config.json`. `LANGSMITH_TRACING_V2`, `LANGSMITH_API_KEY`, and `LANGSMITH_PROJECT` are documented optional settings, but this application does not explicitly initialize LangSmith; configure tracing according to the LangChain/LangSmith environment-variable behavior if you use it.
+The model provider, model ID, temperature, reasoning effort, and system prompt are configured in `backend/agent/configs/prompts.json`. `LANGSMITH_TRACING_V2`, `LANGSMITH_API_KEY`, and `LANGSMITH_PROJECT` are documented optional settings, but this application does not explicitly initialize LangSmith; configure tracing according to the LangChain/LangSmith environment-variable behavior if you use it.
 
 ## Run with Docker Compose
 
@@ -200,7 +200,7 @@ well_model_agent/
 │   ├── agent/
 │   │   ├── graph.py                 # LangGraph workflow and SQLite checkpointer
 │   │   ├── state.py                 # Agent message state
-│   │   ├── prompts/config.json      # OpenRouter model configuration
+│   │   ├── configs/prompts.json      # OpenRouter model configuration
 │   │   ├── services/
 │   │   │   ├── config.py
 │   │   │   ├── llm_model_factory.py

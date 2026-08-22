@@ -16,7 +16,7 @@ this_file_path = os.path.abspath(__file__)
 app = FastAPI()
 
 config = load_config(os.path.join(
-    os.path.dirname(this_file_path), "..", "agent", "prompts", "config.json"))
+    os.path.dirname(this_file_path), "..", "agent", "configs", "prompts.json"))
 
 graph = create_graph(
     llm_model_config=config)
