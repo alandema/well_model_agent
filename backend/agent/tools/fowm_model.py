@@ -7,10 +7,14 @@ from pydantic import BaseModel, Field
 from langchain.tools import tool
 import pint
 
+from agent.services.config import load_config
 from agent.services.model_runner import run_odeint
 
 # Directory where model outputs are written as CSV files.
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
+MODELS_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "configs", "models_config.json"
+)
 
 
 def fowm(initial_conditions, t, params):
@@ -110,11 +114,6 @@ class FowmModelInput(BaseModel):
         ge=2,
         description="Number of time points to calculate, including the initial point.",
     )
-    x0: list[float] = Field(
-        default=[7629.4886447, 1506.47068049, 20249.37406149,
-                 2135.35765486, 1130.58415814, 15196.85834102],
-        description="Initial state variables [x1..x6].",
-    )
     gas_injection_rate: PhysicalValue = Field(
         default=PhysicalValue(value=165000.0, unit="m^3/day"),
         description="Gas injected into the annulus for gas lift.",
@@ -130,38 +129,6 @@ class FowmModelInput(BaseModel):
     reservoir_pressure: PhysicalValue = Field(
         default=PhysicalValue(value=2.25e7, unit="Pa"),
         description="Reservoir pressure driving production inflow.",
-    )
-    mlstill: PhysicalValue = Field(
-        default=PhysicalValue(value=7.10982080e+02, unit="kg"),
-        description="Retained liquid mass in the riser.",
-    )
-    Cg: PhysicalValue = Field(
-        default=PhysicalValue(value=2.34607899e-05, unit="kg / (Pa * s)"),
-        description="Expanded-bubble-to-riser gas transfer coefficient.",
-    )
-    Cout: PhysicalValue = Field(
-        default=PhysicalValue(value=5.81379357e-03, unit="m^2"),
-        description="Riser outlet flow coefficient.",
-    )
-    Veb: PhysicalValue = Field(
-        default=PhysicalValue(value=9.01595194e+01, unit="m^3"),
-        description="Expanded-bubble volume.",
-    )
-    E: PhysicalValue = Field(
-        default=PhysicalValue(value=3.58225582e-02, unit="dimensionless"),
-        description="Wellhead gas fraction bypassing the expanded bubble.",
-    )
-    Kw: PhysicalValue = Field(
-        default=PhysicalValue(value=1.02120538e-03, unit="m^2"),
-        description="Wellhead flow coefficient.",
-    )
-    Ka: PhysicalValue = Field(
-        default=PhysicalValue(value=1.76662493e-04, unit="m^2"),
-        description="Annulus-to-tubing gas flow coefficient.",
-    )
-    Kr: PhysicalValue = Field(
-        default=PhysicalValue(value=2.46716473e+02, unit="kg / s"),
-        description="Reservoir inflow coefficient.",
     )
 
 
@@ -192,15 +159,6 @@ def fowm_model(
     choke_opening: PhysicalValue,
     separator_pressure: PhysicalValue,
     reservoir_pressure: PhysicalValue,
-    mlstill: PhysicalValue,
-    Cg: PhysicalValue,
-    Cout: PhysicalValue,
-    Veb: PhysicalValue,
-    E: PhysicalValue,
-    Kw: PhysicalValue,
-    Ka: PhysicalValue,
-    Kr: PhysicalValue,
-    x0: list[float],
 ) -> str:
     """Run the FOWM model and write the results to a CSV file.
 
@@ -208,9 +166,23 @@ def fowm_model(
     """
 
     try:
+        # Load simulation-only parameters on every invocation so changes to
+        # models_config.json are picked up without restarting the application.
+        config = load_config(MODELS_CONFIG_PATH)
+        simulation_params = config["fowm_model"]["simulation_param"]
+        x0 = simulation_params["x0"]
+        configured_values = {
+            name: PhysicalValue.model_validate(simulation_params[name])
+            for name in ("mlstill", "Cg", "Cout", "Veb", "E", "Kw", "Ka", "Kr")
+        }
+
         ureg = pint.UnitRegistry()
         values = [separator_pressure, reservoir_pressure, gas_injection_rate,
-                  choke_opening, mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr]
+                  choke_opening, configured_values["mlstill"],
+                  configured_values["Cg"], configured_values["Cout"],
+                  configured_values["Veb"], configured_values["E"],
+                  configured_values["Kw"], configured_values["Ka"],
+                  configured_values["Kr"]]
         target_units = ["Pa", "Pa", "m^3/day", "percent", "kg",
                         "kg / (Pa * s)", "m^2", "m^3", "dimensionless",
                         "m^2", "m^2", "kg / s"]

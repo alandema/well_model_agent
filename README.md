@@ -177,12 +177,12 @@ Runs the same graph as `/chat` and returns `text/plain`. The endpoint currently 
 
 The `fowm_model` tool accepts the following inputs. Physical values are objects with a numeric `value` and a Pint-compatible `unit`:
 
-- Initial state `x0` (optional; a default six-state initial condition is used when omitted).
 - `gas_injection_rate` (default `165000 m^3/day`).
 - `choke_opening` (default `16 percent`).
 - `separator_pressure` (default `101325 Pa`).
 - `reservoir_pressure` (default `2.25e7 Pa`).
-- FOWM parameters `mlstill`, `Cg`, `Cout`, `Veb`, `E`, `Kw`, `Ka`, and `Kr`, each with a default defined in `backend/agent/tools/fowm_model.py`.
+
+The initial state `x0` and the remaining FOWM parameters (`mlstill`, `Cg`, `Cout`, `Veb`, `E`, `Kw`, `Ka`, and `Kr`) are stored in `backend/agent/configs/models_config.json` under the `fowm_model.simulation_param` key. The file is read at the start of every simulation, so configuration changes take effect without restarting the backend.
 
 Simulation controls are also parameters of the `fowm_model` tool:
 
