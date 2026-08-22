@@ -62,6 +62,19 @@ To run in the background:
 docker-compose up --build -d
 ```
 
+Telemetry is stored in the host directory `./data/telemetry.db`. Compose bind
+mounts that directory at `/data` in `control_room` and `backend`,
+so the control-room producer, Streamlit reader, and future container readers
+use the same SQLite file. The database can also be queried from the host:
+
+```powershell
+sqlite3 .\data\telemetry.db "SELECT well_id, COUNT(*) FROM sensor_readings GROUP BY well_id;"
+```
+
+The database uses SQLite WAL mode for short concurrent reads and writes. Keep
+the database on the same local host filesystem; do not place this SQLite file
+on a network share.
+
 The services are available at:
 
 - **Streamlit frontend**: <http://localhost:8501>

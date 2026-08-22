@@ -5,8 +5,10 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - ./data:/data
     environment:
       - PYTHONPATH=/app
+      - TELEMETRY_DB_PATH=/data/telemetry.db
     env_file:
       - ./backend/.env
 
@@ -29,5 +31,7 @@ services:
       - "8601:8601"
     volumes:
       - ./control_room:/app
+      - ./data:/data
     environment:
       - PYTHONPATH=/app
+      - TELEMETRY_DB_PATH=/data/telemetry.db
