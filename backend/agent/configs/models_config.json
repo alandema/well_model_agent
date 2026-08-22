@@ -37,90 +37,77 @@
     "physical_constants": {
       "Rol": {
         "value": 900.0,
-        "unit": "kg / m^3",
-        "description": "Liquid density, assumed constant."
+        "description": "Liquid density, assumed constant. (kg / m^3)"
       },
       "R": {
         "value": 8314.0,
-        "unit": "J / (kmol * K)",
-        "description": "Universal gas constant."
+        "description": "Universal gas constant. (J / (kmol * K))"
       },
       "T": {
         "value": 298.0,
-        "unit": "K",
-        "description": "Average temperature in the production system."
+        "description": "Average temperature in the production system. (K)"
       },
       "M": {
         "value": 18.0,
-        "unit": "kg / kmol",
-        "description": "Gas molecular weight."
+        "description": "Gas molecular weight. (kg / kmol)"
       },
       "g": {
         "value": 9.81,
-        "unit": "m / s^2",
-        "description": "Gravity acceleration."
+        "description": "Gravity acceleration. (m / s^2)"
       },
       "ALFAgw": {
         "value": 0.0188,
-        "unit": "dimensionless",
-        "description": "Gas mass fraction at reservoir conditions."
+        "description": "Gas mass fraction at reservoir conditions. (dimensionless)"
+      },
+      "theta": {
+        "value": 45,
+        "description": "average riser inclination angle. (degrees)"
       },
       "Romres": {
         "value": 891.9523,
-        "unit": "kg / m^3",
-        "description": "Mixture density at the reservoir."
+        "description": "Mixture density at the reservoir. (kg / m^3)"
       }
     },
     "geometry_params": {
       "D_ss": {
         "value": 0.152,
-        "unit": "m",
-        "description": "Subsea pipeline diameter."
+        "description": "Subsea pipeline diameter. (m)"
       },
       "D_t": {
         "value": 0.15,
-        "unit": "m",
-        "description": "Tubing diameter."
+        "description": "Tubing diameter (m)"
       },
       "D_a": {
         "value": 0.14,
-        "unit": "m",
-        "description": "Annular diameter."
+        "description": "Annular diameter. (m)"
       },
       "L_r": {
         "value": 1569.0,
-        "unit": "m",
-        "description": "Riser length."
+        "description": "Riser length. (m)"
       },
       "L_fl": {
         "value": 2928.0,
-        "unit": "m",
-        "description": "Flowline length."
+        "description": "Flowline length. (m)"
       },
       "L_t": {
         "value": 1639.0,
-        "unit": "m",
-        "description": "Tubing length."
+        "description": "Tubing length. (m)"
       },
       "L_a": {
         "value": 1118.0,
-        "unit": "m",
-        "description": "Annular length."
+        "description": "Annular length. (m)"
       },
       "Hvgl": {
         "value": 916.0,
-        "unit": "m",
-        "description": "Vertical length to the gas lift valve."
+        "description": "Vertical length to the gas lift valve. (m)"
       },
       "Hpdg": {
         "value": 1117.0,
-        "unit": "m",
-        "description": "Vertical length to the PDG."
+        "description": "Vertical length to the PDG. (m)"
       },
       "Ht": {
         "value": 1279.0,
-        "unit": "m",
-        "description": "Vertical length to the bottom hole."
+        "description": "Vertical length to the bottom hole. (m)"
       }
     }
   }
