@@ -181,8 +181,9 @@ The `fowm_model` tool accepts the following inputs. Physical values are objects 
 - `choke_opening` (default `16 percent`).
 - `separator_pressure` (default `101325 Pa`).
 - `reservoir_pressure` (default `2.25e7 Pa`).
+- `x0` (default `[7629.4886447, 1506.47068049, 20249.37406149, 2135.35765486, 1130.58415814, 15196.85834102]`).
 
-The initial state `x0` and the remaining FOWM parameters (`mlstill`, `Cg`, `Cout`, `Veb`, `E`, `Kw`, `Ka`, and `Kr`) are stored in `backend/agent/configs/models_config.json` under the `fowm_model.simulation_param` key. The file is read at the start of every simulation, so configuration changes take effect without restarting the backend.
+The initial state `x0` is a tool input. The remaining FOWM parameters (`mlstill`, `Cg`, `Cout`, `Veb`, `E`, `Kw`, `Ka`, and `Kr`) are stored in `backend/agent/configs/models_config.json` under the `fowm_model.simulation_params` key. The physical constants are under `fowm_model.physical_constants`, and the well geometry parameters are under `fowm_model.geometry_params`. These configuration values include human-readable descriptions and units; descriptions are not used by the code. The file is read at the start of every simulation, so configuration changes take effect without restarting the backend.
 
 Simulation controls are also parameters of the `fowm_model` tool:
 

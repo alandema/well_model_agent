@@ -19,26 +19,49 @@ MODELS_CONFIG_PATH = os.path.join(
 
 def fowm(initial_conditions, t, params):
     x1, x2, x3, x4, x5, x6 = initial_conditions
-    separator_pressure, reservoir_pressure, gas_injection_rate, choke_opening, mlstill, Cg, Cout, Veb, E, Kw, Ka, Kr = params
 
-    # Physical constants
-    Rol = 900.0
-    R = 8314.0
-    T = 298.0
-    M = 18.0
-    g = 9.81
-    ALFAgw = 0.0188
-    Romres = 891.9523
+    input_values = params["input_values"]
+    separator_pressure = input_values["separator_pressure"]
+    reservoir_pressure = input_values["reservoir_pressure"]
+    gas_injection_rate = input_values["gas_injection_rate"]
+    choke_opening = input_values["choke_opening"]
+
+    simulation_params = params["simulation_params"]
+    mlstill = simulation_params["mlstill"]
+    Cg = simulation_params["Cg"]
+    Cout = simulation_params["Cout"]
+    Veb = simulation_params["Veb"]
+    E = simulation_params["E"]
+    Kw = simulation_params["Kw"]
+    Ka = simulation_params["Ka"]
+    Kr = simulation_params["Kr"]
+
+    physical_constants = params["physical_constants"]
+    Rol = physical_constants["Rol"]
+    R = physical_constants["R"]
+    T = physical_constants["T"]
+    M = physical_constants["M"]
+    g = physical_constants["g"]
+    ALFAgw = physical_constants["ALFAgw"]
+    Romres = physical_constants["Romres"]
+
+    geometry_params = params["geometry_params"]
+    D_ss = geometry_params["D_ss"]
+    D_t = geometry_params["D_t"]
+    D_a = geometry_params["D_a"]
+    L_r = geometry_params["L_r"]
+    L_fl = geometry_params["L_fl"]
+    L_t = geometry_params["L_t"]
+    L_a = geometry_params["L_a"]
+    Hvgl = geometry_params["Hvgl"]
+    Hpdg = geometry_params["Hpdg"]
+    Ht = geometry_params["Ht"]
 
     # Geometry
-    A = 0.018145839167135
-    Vr = 81.601838734604499
-    Vt = 28.963520770689396
-    Va = 17.210272874895608
-    La = 1118.0
-    Hvgl = 916.0
-    Hpdg = 1117.0
-    Ht = 1279.0
+    A = np.pi * (D_ss ** 2) / 4.0
+    Vr = (np.pi * (D_ss ** 2) * L_r / 4.0) + (np.pi * (D_ss ** 2) * L_fl / 4.0)
+    Vt = np.pi * (D_t ** 2) * L_t / 4.0
+    Va = np.pi * (D_a ** 2) * L_a / 4.0
 
     # Control inputs
     Ps = separator_pressure
@@ -77,7 +100,7 @@ def fowm(initial_conditions, t, params):
     Wr = max(0.0, Kr * (1.0 - 0.2 * Pbh / Pr - 0.8 * (Pbh / Pr) ** 2))
 
     # ANNULAR
-    Pai = ((R * T / (Va * M)) + (g * La / Va)) * x4
+    Pai = ((R * T / (Va * M)) + (g * L_a / Va)) * x4
     ROai = M * Pai / (R * T)
     Wiv = Ka * np.sqrt(ROai * max(0.0, (Pai - Ptb)))
 
@@ -114,6 +137,11 @@ class FowmModelInput(BaseModel):
         ge=2,
         description="Number of time points to calculate, including the initial point.",
     )
+    x0: list[float] = Field(
+        default=[7629.4886447, 1506.47068049, 20249.37406149,
+                 2135.35765486, 1130.58415814, 15196.85834102],
+        description="Initial state variables [x1..x6].",
+    )
     gas_injection_rate: PhysicalValue = Field(
         default=PhysicalValue(value=165000.0, unit="m^3/day"),
         description="Gas injected into the annulus for gas lift.",
@@ -130,6 +158,21 @@ class FowmModelInput(BaseModel):
         default=PhysicalValue(value=2.25e7, unit="Pa"),
         description="Reservoir pressure driving production inflow.",
     )
+
+
+def _convert_physical_value(value, target_unit, ureg):
+    """Convert a physical-value object to a numeric model value."""
+    physical_value = PhysicalValue.model_validate(value)
+    return (physical_value.value * ureg(physical_value.unit)).to(target_unit).magnitude
+
+
+def _convert_configured_values(configured_values, target_units, ureg):
+    """Convert configured physical values to the model's calculation units."""
+    return {
+        name: _convert_physical_value(value, target_units[name], ureg)
+        for name, value in configured_values.items()
+        if name in target_units
+    }
 
 
 @tool(
@@ -155,6 +198,7 @@ WHEN TO PREFER OTHER MODELS (e.g., OLGA or rigorous PDE simulators):
 def fowm_model(
     integration_time: float,
     time_points: int,
+    x0: list[float],
     gas_injection_rate: PhysicalValue,
     choke_opening: PhysicalValue,
     separator_pressure: PhysicalValue,
@@ -166,30 +210,69 @@ def fowm_model(
     """
 
     try:
-        # Load simulation-only parameters on every invocation so changes to
-        # models_config.json are picked up without restarting the application.
         config = load_config(MODELS_CONFIG_PATH)
-        simulation_params = config["fowm_model"]["simulation_param"]
-        x0 = simulation_params["x0"]
-        configured_values = {
-            name: PhysicalValue.model_validate(simulation_params[name])
-            for name in ("mlstill", "Cg", "Cout", "Veb", "E", "Kw", "Ka", "Kr")
-        }
 
         ureg = pint.UnitRegistry()
-        values = [separator_pressure, reservoir_pressure, gas_injection_rate,
-                  choke_opening, configured_values["mlstill"],
-                  configured_values["Cg"], configured_values["Cout"],
-                  configured_values["Veb"], configured_values["E"],
-                  configured_values["Kw"], configured_values["Ka"],
-                  configured_values["Kr"]]
-        target_units = ["Pa", "Pa", "m^3/day", "percent", "kg",
-                        "kg / (Pa * s)", "m^2", "m^3", "dimensionless",
-                        "m^2", "m^2", "kg / s"]
-        params = [
-            (value.value * ureg(value.unit)).to(unit).magnitude
-            for value, unit in zip(values, target_units)
-        ]
+
+        params = {
+            "input_values": {
+                "separator_pressure": _convert_physical_value(
+                    separator_pressure, "Pa", ureg),
+                "reservoir_pressure": _convert_physical_value(
+                    reservoir_pressure, "Pa", ureg),
+                "gas_injection_rate": _convert_physical_value(
+                    gas_injection_rate, "m^3/day", ureg),
+                "choke_opening": _convert_physical_value(
+                    choke_opening, "percent", ureg),
+            },
+            "simulation_params": _convert_configured_values(
+                config["fowm_model"]["simulation_params"],
+                {
+                    "separator_pressure": "Pa",
+                    "reservoir_pressure": "Pa",
+                    "gas_injection_rate": "m^3/day",
+                    "choke_opening": "percent",
+                    "mlstill": "kg",
+                    "Cg": "kg / (Pa * s)",
+                    "Cout": "m^2",
+                    "Veb": "m^3",
+                    "E": "dimensionless",
+                    "Kw": "m^2",
+                    "Ka": "m^2",
+                    "Kr": "kg / s",
+                },
+                ureg,
+            ),
+            "physical_constants": _convert_configured_values(
+                config["fowm_model"]["physical_constants"],
+                {
+                    "Rol": "kg / m^3",
+                    "R": "J / (kmol * K)",
+                    "T": "K",
+                    "M": "kg / kmol",
+                    "g": "m / s^2",
+                    "ALFAgw": "dimensionless",
+                    "Romres": "kg / m^3",
+                },
+                ureg,
+            ),
+            "geometry_params": _convert_configured_values(
+                config["fowm_model"]["geometry_params"],
+                {
+                    "D_ss": "m",
+                    "D_t": "m",
+                    "D_a": "m",
+                    "L_r": "m",
+                    "L_fl": "m",
+                    "L_t": "m",
+                    "L_a": "m",
+                    "Hvgl": "m",
+                    "Hpdg": "m",
+                    "Ht": "m",
+                },
+                ureg,
+            ),
+        }
         sol, outputs, t = run_odeint(
             fowm,
             x0,
