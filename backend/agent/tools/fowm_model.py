@@ -4,7 +4,8 @@ import datetime
 
 import numpy as np
 from pydantic import BaseModel, Field
-from langchain.tools import tool
+from langchain.tools import tool, ToolRuntime
+from agent.state import AgentState
 import pint
 
 from agent.services.config import load_config
@@ -204,11 +205,14 @@ def fowm_model(
     choke_opening: PhysicalValue,
     separator_pressure: PhysicalValue,
     reservoir_pressure: PhysicalValue,
+    runtime: ToolRuntime[None, AgentState],
 ) -> dict:
     """Run the FOWM model and write the results to a CSV file.
 
     Returns the absolute path to the generated CSV file.
     """
+
+    current_run_id = runtime.state.get("run_id")
 
     try:
         config = load_config(MODELS_CONFIG_PATH)
@@ -264,5 +268,6 @@ def fowm_model(
             "x5": np.round(sol[-1, 4], 3),
             "x6": np.round(sol[-1, 5], 3)
         },
-        "message": f"Results saved to {os.path.abspath(file_path)}."
+        "message": f"Results saved to {os.path.abspath(file_path)}.",
+        "run_id": current_run_id
     }

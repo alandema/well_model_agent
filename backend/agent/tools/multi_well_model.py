@@ -4,9 +4,10 @@ import datetime
 
 import numpy as np
 from pydantic import BaseModel, Field
-from langchain.tools import tool
+from langchain.tools import tool, ToolRuntime
 import pint
 
+from agent.state import AgentState
 from agent.services.model_runner import run_stiff
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
@@ -464,8 +465,11 @@ def multi_well_model(
     separator_pressure: PhysicalValue,
     well_parameters: list[MultiWellParameter],
     x0: list[float],
-) -> str:
+    runtime: ToolRuntime[None, AgentState],
+) -> dict:
     """Run the multi-well model and write the results to a CSV file."""
+
+    run_id = runtime.state.get("run_id")
 
     try:
         gas_rates = [
@@ -516,7 +520,7 @@ def multi_well_model(
         sol, outputs, t = run_stiff(
             multi_well, state_vector, integration_time, params, time_points)
     except Exception as e:
-        return f"Error running multi-well model: {str(e)}"
+        return {"run_id": run_id, "error": f"Error running multi-well model: {str(e)}"}
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     file_path = os.path.join(
@@ -540,4 +544,12 @@ def multi_well_model(
             row = [t[i]] + list(sol[i]) + [outputs[i][k] for k in output_keys]
             writer.writerow(row)
 
-    return f"Results saved to {os.path.abspath(file_path)}. The CSV contains columns: {', '.join(header)}."
+    return {
+        "run_id": run_id,
+        "file_path": os.path.abspath(file_path),
+        "columns": header,
+        "message": (
+            f"Run {run_id}: results saved to {os.path.abspath(file_path)}. "
+            f"The CSV contains columns: {', '.join(header)}."
+        ),
+    }

@@ -20,6 +20,7 @@ all_tools = [fowm_model, multi_well_model, summarize_csv, read_csv, terminal]
 if is_web_search_available():
     all_tools.append(web_search)
 MAX_TOOL_ROUNDS = 3
+WELL_MODEL_TOOLS = {"fowm_model", "multi_well_model"}
 
 
 def route_after_model(state: AgentState):
@@ -43,6 +44,16 @@ def route_after_model(state: AgentState):
         return "stop"
 
     return "tools"
+
+
+def increment_well_model_run_id(state: AgentState):
+    """Add one run ID for each well-model tool call."""
+    tool_calls = getattr(state["messages"][-1], "tool_calls", [])
+    count = sum(
+        call.get("name") in WELL_MODEL_TOOLS
+        for call in tool_calls
+    )
+    return {"run_id": count}
 
 
 def create_graph(llm_model_config: dict):
@@ -77,11 +88,17 @@ def create_graph(llm_model_config: dict):
     builder = StateGraph(AgentState)
 
     builder.add_node("call_model", call_model)
+    builder.add_node("increment_run_id", increment_well_model_run_id)
     builder.add_node("tools", ToolNode(all_tools))
     builder.add_node("stop", stop_after_max_tool_rounds)
 
     builder.add_edge(START, "call_model")
-    builder.add_conditional_edges("call_model", route_after_model)
+    builder.add_conditional_edges(
+        "call_model",
+        route_after_model,
+        {"tools": "increment_run_id", "stop": "stop", END: END},
+    )
+    builder.add_edge("increment_run_id", "tools")
     builder.add_edge("tools", "call_model")
     builder.add_edge("stop", END)
 

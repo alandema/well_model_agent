@@ -59,10 +59,11 @@ async def chat(request: ChatRequest):
         }
     }
 
-    result = graph.invoke(
-        {"messages": [HumanMessage(content=request.message)]},
-        config=config,
-    )
+    input_state = {"messages": [HumanMessage(content=request.message)]}
+    if request.thread_id is None:
+        input_state["run_id"] = 0
+
+    result = graph.invoke(input_state, config=config)
     response = ""
     for message in reversed(result.get("messages", [])):
         text = getattr(message, "text", "")
@@ -90,10 +91,10 @@ async def chat_stream(request: ChatRequest):
     }
 
     def token_generator():
-        result = graph.invoke(
-            {"messages": [HumanMessage(content=request.message)]},
-            config=config,
-        )
+        input_state = {"messages": [HumanMessage(content=request.message)]}
+        if request.thread_id is None:
+            input_state["run_id"] = 0
+        result = graph.invoke(input_state, config=config)
         response = ""
         for message in reversed(result.get("messages", [])):
             text = getattr(message, "text", "")
