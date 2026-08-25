@@ -3,7 +3,8 @@ from langchain_openrouter import ChatOpenRouter
 from langchain_core.prompts import ChatPromptTemplate
 
 
-def create_llm_model(llm_model_config: dict, tools: list = None):
+def create_llm_model(llm_model_config: dict, tools: list = None,
+                     output_schema=None):
     """Create a chat model with the system prompt and tools attached.
 
     Returns a Runnable that, when invoked with a list of messages, produces
@@ -21,6 +22,9 @@ def create_llm_model(llm_model_config: dict, tools: list = None):
     # supports being the target of a prompt | model chain).
     if tools:
         model = model.bind_tools(tools)
+
+    if output_schema is not None:
+        model = model.with_structured_output(output_schema)
 
     # Attach the system prompt using the documented prompt | model pattern.
     system_prompt = llm_model_config.get("system_prompt", "")

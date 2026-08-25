@@ -1,8 +1,11 @@
 import os
 import sqlite3
+from typing import Literal
+
+from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, START, END
 from langgraph.prebuilt import ToolNode
-from langchain_core.messages import AIMessage
+from langchain_core.messages import HumanMessage
 from agent.services.llm_model_factory import create_llm_model
 from agent.state import AgentState
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -10,97 +13,138 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from agent.tools.fowm_model import fowm_model
 from agent.tools.multi_well_model import multi_well_model
-from agent.tools.web_search import is_web_search_available, web_search
 from agent.tools.summarize_csv import summarize_csv
 from agent.tools.read_csv import read_csv
 from agent.tools.terminal import terminal
-# from agent.tools.unit_conversion import convert_units
+from agent.tools.web_search import is_web_search_available, web_search
 
-all_tools = [fowm_model, multi_well_model, summarize_csv, read_csv, terminal]
+GENERATOR_TOOLS = [fowm_model, multi_well_model]
+EVALUATOR_TOOLS = [summarize_csv, read_csv, terminal]
 if is_web_search_available():
-    all_tools.append(web_search)
-MAX_TOOL_ROUNDS = 3
-WELL_MODEL_TOOLS = {"fowm_model", "multi_well_model"}
+    EVALUATOR_TOOLS.append(web_search)
+MAX_ITERATIONS = 3
 
 
-def route_after_model(state: AgentState):
-    """Stop before the model starts a fourth tool round."""
-    last_message = state["messages"][-1]
-    current_tool_calls = getattr(last_message, "tool_calls", None)
-    if not current_tool_calls:
-        return END
+class ProductionEvaluation(BaseModel):
+    """Small, machine-readable contract between evaluator and optimizer."""
 
-    messages_since_user = []
-    for message in reversed(state["messages"]):
-        if getattr(message, "type", None) == "human":
-            break
-        messages_since_user.append(message)
-
-    tool_rounds = sum(
-        bool(getattr(message, "tool_calls", None))
-        for message in messages_since_user
-    )
-    if tool_rounds > MAX_TOOL_ROUNDS:
-        return "stop"
-
-    return "tools"
-
-
-def increment_well_model_run_id(state: AgentState):
-    """Add one run ID for each well-model tool call."""
-    tool_calls = getattr(state["messages"][-1], "tool_calls", [])
-    count = sum(
-        call.get("name") in WELL_MODEL_TOOLS
-        for call in tool_calls
-    )
-    return {"run_id": count}
+    grade: Literal["acceptable", "needs_improvement"] = Field(
+        description="Whether the simulated production result is acceptable.")
+    feedback: str = Field(
+        description="Specific changes the optimizer should try next.")
+    recommendation: str = Field(
+        description="Concise operational recommendation based on the results.")
 
 
 def create_graph(llm_model_config: dict):
-    # The factory returns a Runnable that already has the system prompt
-    # and tools attached (prompt | model.bind_tools(tools)).
-    principal_model = create_llm_model(
-        llm_model_config.get("principal", {}), tools=all_tools
-    )
+    generator_config = llm_model_config["Generator"]
+    evaluator_config = llm_model_config["Evaluator"]
+    judge_config = llm_model_config["Judge"]
+    finalizer_config = llm_model_config["Finalizer"]
 
-    def call_model(state: AgentState):
-        """Single node that calls the configured model.
+    generator_model = create_llm_model(generator_config, tools=GENERATOR_TOOLS)
+    evaluator_tools_model = create_llm_model(
+        evaluator_config, tools=EVALUATOR_TOOLS)
+    evaluator_model = create_llm_model(
+        judge_config, output_schema=ProductionEvaluation)
+    finalizer_model = create_llm_model(finalizer_config)
 
-        The system prompt and tools are already attached to the model in
-        the factory, so this node only needs to invoke it on the messages.
-        """
-        response = principal_model.invoke({"messages": state["messages"]})
+    def generator(state: AgentState):
+        """Generate and run the next production-improvement experiment."""
+        feedback = state.get("feedback")
+        instruction = (
+            "Act as the Generator. Run exactly one well model using concrete "
+            "parameters. Find a safe parameter change that can increase "
+            "production while preventing severe slugging. Use the evaluator "
+            "feedback below when present. You must call either fowm_model or "
+            "multi_well_model; do not answer without running a model.\n"
+            f"Evaluator feedback: {feedback or 'No previous evaluation.'}"
+        )
+        response = generator_model.invoke({
+            "messages": state["messages"] + [HumanMessage(content=instruction)]
+        })
+        return {"messages": [response], "plan": response.content,
+                "iteration": state.get("iteration", 0) + 1}
+
+    def evaluator(state: AgentState):
+        """Inspect and judge the Generator outcome."""
+        prompt = HumanMessage(content=(
+            "Act as the Evaluator. Inspect the latest Generator well-model "
+            "result. Use the CSV analysis tools to examine the generated file "
+            "and calculate/compare production and slugging indicators. Do not "
+            "run another well model.\nGenerator plan: "
+            f"{state.get('plan', '')}"
+        ))
+        response = evaluator_tools_model.invoke({
+            "messages": state["messages"] + [prompt]
+        })
         return {"messages": [response]}
 
-    def stop_after_max_tool_rounds(state: AgentState):
-        return {
-            "messages": [
-                AIMessage(
-                    content=(
-                        "I stopped after reaching the maximum number of tool "
-                        "rounds. Please clarify the request before trying again."
-                    )
-                )
-            ]
-        }
+    def judge(state: AgentState):
+        """Return structured feedback for the next Generator iteration."""
+        result = evaluator_model.invoke({
+            "messages": state["messages"] + [HumanMessage(content=(
+                "Judge the Evaluator's analysis and latest Generator result "
+                "against the goal "
+                "of increasing production while preventing severe slugging. "
+                "Return structured feedback only."
+            ))]
+        })
+        return {"feedback": result.feedback,
+                "evaluation": result.model_dump()}
+
+    def finalize(state: AgentState):
+        prompt = HumanMessage(content=(
+            "Provide the final answer to the user. Summarize the simulated "
+            "production result, the best parameter changes, safety/slugging "
+            "trade-offs, and any CSV paths. Do not run another tool."
+        ))
+        response = finalizer_model.invoke({
+            "messages": state["messages"] + [prompt]
+        })
+        return {"messages": [response]}
+
+    def route_generator(state: AgentState):
+        last = state["messages"][-1]
+        return "run_models" if getattr(last, "tool_calls", None) else "finalize"
+
+    def route_evaluator_tools(state: AgentState):
+        last = state["messages"][-1]
+        return "evaluator_tools" if getattr(last, "tool_calls", None) else "judge"
+
+    def route_judge(state: AgentState):
+        evaluation = state.get("evaluation", {})
+        if (evaluation.get("grade") == "acceptable" or
+                state.get("iteration", 0) >= MAX_ITERATIONS):
+            return "finalize"
+        return "Generator"
 
     # Build the graph
     builder = StateGraph(AgentState)
 
-    builder.add_node("call_model", call_model)
-    builder.add_node("increment_run_id", increment_well_model_run_id)
-    builder.add_node("tools", ToolNode(all_tools))
-    builder.add_node("stop", stop_after_max_tool_rounds)
+    builder.add_node("Generator", generator)
+    builder.add_node("generator_tools", ToolNode(GENERATOR_TOOLS))
+    builder.add_node("Evaluator", evaluator)
+    builder.add_node("evaluator_tools", ToolNode(EVALUATOR_TOOLS))
+    builder.add_node("judge", judge)
+    builder.add_node("finalize", finalize)
 
-    builder.add_edge(START, "call_model")
+    builder.add_edge(START, "Generator")
     builder.add_conditional_edges(
-        "call_model",
-        route_after_model,
-        {"tools": "increment_run_id", "stop": "stop", END: END},
+        "Generator", route_generator,
+        {"run_models": "generator_tools", "finalize": "finalize"},
     )
-    builder.add_edge("increment_run_id", "tools")
-    builder.add_edge("tools", "call_model")
-    builder.add_edge("stop", END)
+    builder.add_edge("generator_tools", "Evaluator")
+    builder.add_conditional_edges(
+        "Evaluator", route_evaluator_tools,
+        {"evaluator_tools": "evaluator_tools", "judge": "judge"},
+    )
+    builder.add_edge("evaluator_tools", "judge")
+    builder.add_conditional_edges(
+        "judge", route_judge,
+        {"Generator": "Generator", "finalize": "finalize"},
+    )
+    builder.add_edge("finalize", END)
 
     # Create checkpoints directory if it doesn't exist
     checkpoint_dir = os.path.join(

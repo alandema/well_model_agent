@@ -60,8 +60,6 @@ async def chat(request: ChatRequest):
     }
 
     input_state = {"messages": [HumanMessage(content=request.message)]}
-    if request.thread_id is None:
-        input_state["run_id"] = 0
 
     result = graph.invoke(input_state, config=config)
     response = ""

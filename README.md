@@ -7,7 +7,7 @@ The agent uses the `poolside/laguna-s-2.1:free` model (because it is free - Usin
 ## Current architecture
 
 - **Backend**: FastAPI application served by Uvicorn.
-- **Agent**: LangGraph workflow containing model, tool, and stop nodes. It can call the FOWM simulation, web search, CSV analysis, CSV reading, and terminal tools, then loops back to the model after tool execution. The workflow stops after more than three tool rounds for a single user request.
+- **Agent**: A bounded LangGraph evaluator-optimizer workflow. The optimizer proposes production-improvement experiments, the evaluator runs one of the well models, and a structured evaluator judges production increase versus severe-slugging risk. Up to three experiments are attempted before a final recommendation is produced.
 - **Model provider**: `langchain-openrouter` with the model and system prompt configured in `backend/agent/configs/prompts.json`.
 - **FOWM tool**: Integrates the six-state ODE model with SciPy's `odeint`, converts physical inputs with Pint, calculates pressures, and writes simulation results to a CSV file.
 - **Conversation persistence**: LangGraph uses a SQLite checkpointer at `backend/agent/.checkpoints/checkpoints.sqlite`, with `thread_id` used to continue a conversation.
