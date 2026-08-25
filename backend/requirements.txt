@@ -4,6 +4,7 @@ langgraph-checkpoint-sqlite
 langchain-openrouter
 tavily
 fastapi[standard]
+debugpy
 numpy
 scipy
 matplotlib
