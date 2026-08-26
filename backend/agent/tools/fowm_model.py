@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 from pydantic import BaseModel, Field
 from langchain.tools import tool, ToolRuntime
-from agent.state import AgentState
+from agent.graph.state import AgentState
 import pint
 
 from agent.services.config import load_config
@@ -226,9 +226,9 @@ def fowm_model(
                 "gas_injection_rate": gas_injection_rate.value,
                 "choke_opening": choke_opening.value,
             },
-            "simulation_params": {k:v['value'] for k, v in config["fowm_model"]["simulation_params"].items()},
-            "physical_constants": {k:v['value'] for k, v in config["fowm_model"]["physical_constants"].items()},
-            "geometry_params": {k:v['value'] for k, v in config["fowm_model"]["geometry_params"].items()}
+            "simulation_params": {k: v['value'] for k, v in config["fowm_model"]["simulation_params"].items()},
+            "physical_constants": {k: v['value'] for k, v in config["fowm_model"]["physical_constants"].items()},
+            "geometry_params": {k: v['value'] for k, v in config["fowm_model"]["geometry_params"].items()}
         }
         sol, outputs, t = run_odeint(
             fowm,

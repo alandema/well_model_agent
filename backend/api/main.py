@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from agent.graph import create_graph
+from agent.graph.builder import create_graph
 from agent.services.config import load_config
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
@@ -20,6 +20,8 @@ config = load_config(os.path.join(
 
 graph = create_graph(
     llm_model_config=config)
+
+print(graph.get_graph().draw_mermaid())
 
 
 class ChatRequest(BaseModel):

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from langchain.tools import tool, ToolRuntime
 import pint
 
-from agent.state import AgentState
+from agent.graph.state import AgentState
 from agent.services.model_runner import run_stiff
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")

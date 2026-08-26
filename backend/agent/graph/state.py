@@ -8,7 +8,9 @@ class AgentState(MessagesState):
     """State for the evaluator-optimizer production workflow."""
 
     run_id: Annotated[int, add] = 0
-    iteration: Annotated[int, add]= 0
-    plan: NotRequired[str]
-    feedback: NotRequired[str]
-    evaluation: NotRequired[dict]
+    iteration: Annotated[int, add] = 0
+    parameters: NotRequired[dict] = None
+    csv_path: NotRequired[str] = None
+    instructions: NotRequired[str] = None
+    decision: NotRequired[str] = None
+    justification: NotRequired[str] = None
