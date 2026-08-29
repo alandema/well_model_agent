@@ -1,4 +1,4 @@
-import json
+import os
 from langchain_openrouter import ChatOpenRouter
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.agents import create_agent
@@ -31,7 +31,11 @@ def create_llm_model(llm_model_config: dict, tools: list = None,
         model = model.bind_tools(tools)
 
     # Attach the system prompt using the documented prompt | model pattern.
-    system_prompt = llm_model_config.get("system_prompt", "")
+    system_prompt = ""
+    system_prompt_path = llm_model_config.get("system_prompt_path")
+    if system_prompt_path:
+        with open(os.fspath(system_prompt_path), "r", encoding="utf-8") as f:
+            system_prompt = f.read()
 
     if output_schema is not None and tools is not None:
         model = create_agent(
