@@ -5,26 +5,6 @@ from pydantic import BaseModel, Field
 
 from agent.graph.state import AgentState
 
-
-class GeneratorOutput(BaseModel):
-    """Small, machine-readable contract for the generator."""
-
-    parameters: dict = Field(
-        description="The parameters used to run the simulation."
-    )
-    csv_path: str = Field(
-        description="Path to the CSV file containing the results of the simulation."
-    )
-
-
-class EvaluatorOutput(BaseModel):
-    """Small, machine-readable contract for the evaluator."""
-
-    instructions: str = Field(
-        description="Instructions for the generator to improve the simulation results."
-    )
-
-
 class JudgeOutput(BaseModel):
     """Small, machine-readable contract for the judge."""
 
@@ -45,21 +25,19 @@ def create_nodes(generator_model, evaluator_model, judge_model,
         response = generator_model.invoke({
             "messages": state["messages"]
         })
-        return {"parameters": response.parameters,
-                "csv_path": response.csv_path,
-                "iteration":  1}
+        return {"messages": [response]}
 
     def evaluator(state: AgentState):
         response = evaluator_model.invoke({
-            "messages": state["messages"]
+            "messages": state["messages"][-1]
         })
         return {"messages": [response]}
 
     def judge(state: AgentState):
         response = judge_model.invoke({
-            "messages": state["messages"]
+            "messages": state["messages"][-1]
         })
-        return {"instructions": response.instructions}
+        return {"messages": [response]}
 
     def finalize(state: AgentState):
         prompt = HumanMessage(content=(

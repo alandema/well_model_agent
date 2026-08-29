@@ -3,7 +3,7 @@ MAX_ITERATIONS = 3
 
 def route_generator(state):
     last = state["messages"][-1]
-    return "run_models" if getattr(last, "tool_calls", None) else "finalize"
+    return "generator_tools" if getattr(last, "tool_calls", None) else "finalize"
 
 
 def route_evaluator_tools(state):

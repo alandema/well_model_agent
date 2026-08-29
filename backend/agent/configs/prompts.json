@@ -10,7 +10,7 @@
         "system_prompt_path": "prompts/principal.md"
     },
     "Generator": {
-        "model_id": "poolside/laguna-s-2.1:free",
+        "model_id": "openai/gpt-5.6-luna",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -20,7 +20,7 @@
         "system_prompt_path": "prompts/generator.md"
     },
     "Evaluator": {
-        "model_id": "poolside/laguna-s-2.1:free",
+        "model_id": "openai/gpt-5.6-luna",
         "model_config": {
             "temperature": 0,
             "reasoning": {

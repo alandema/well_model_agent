@@ -6,7 +6,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from agent.graph.edges import route_evaluator_tools, route_generator, route_judge
-from agent.graph.nodes import GeneratorOutput, EvaluatorOutput, JudgeOutput, create_nodes
+from agent.graph.nodes import EvaluatorOutput, JudgeOutput, create_nodes
 from agent.graph.state import AgentState
 from agent.services.llm_model_factory import create_llm_model
 from agent.tools.fowm_model import fowm_model
@@ -25,13 +25,11 @@ if is_web_search_available():
 def create_graph(llm_model_config: dict):
     generator_model = create_llm_model(
         llm_model_config["Generator"],
-        tools=GENERATOR_TOOLS,
-        output_schema=GeneratorOutput
+        tools=GENERATOR_TOOLS
     )
     evaluator_model = create_llm_model(
         llm_model_config["Evaluator"],
-        tools=EVALUATOR_TOOLS,
-        output_schema=EvaluatorOutput
+        tools=EVALUATOR_TOOLS
     )
     judge_model = create_llm_model(
         llm_model_config["Judge"],
@@ -59,7 +57,7 @@ def create_graph(llm_model_config: dict):
     builder.add_edge(START, "Generator")
     builder.add_conditional_edges(
         "Generator", route_generator,
-        {"run_models": "generator_tools", "finalize": "finalize"},
+        {"generator_tools": "generator_tools", "finalize": "finalize"},
     )
     builder.add_edge("generator_tools", "Evaluator")
     builder.add_conditional_edges(
