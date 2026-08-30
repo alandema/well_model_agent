@@ -26,8 +26,10 @@ def create_nodes(generator_model, evaluator_model, judge_model,
         generator_messages = list(state.get("generator_messages") or [])
         evaluator_messages = state.get("evaluator_messages") or []
 
-        if isinstance(state.get("messages")[-1], HumanMessage) and not generator_messages:
-            generator_messages = [state.get("messages")[-1]]
+        if isinstance(state.get("messages")[-1], HumanMessage):
+            # Fresh user input (first turn or a follow-up message):
+            # always append it to the generator's conversation.
+            generator_messages.append(state.get("messages")[-1])
         elif evaluator_messages and isinstance(evaluator_messages[-1], AIMessage):
             generator_messages.append(
                 HumanMessage(content=evaluator_messages[-1].content))
