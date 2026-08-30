@@ -22,22 +22,27 @@ def create_nodes(generator_model, evaluator_model, judge_model,
     """Create the workflow nodes with their configured models."""
 
     def generator(state: AgentState):
+        # Work on local copies; never mutate the shared state dict.
+        generator_messages = list(state.get("generator_messages") or [])
+        evaluator_messages = state.get("evaluator_messages") or []
 
-        if isinstance(state.get("messages")[-1], HumanMessage) and not state.get("generator_messages"):
-            state["generator_messages"] = [state.get("messages")[-1]]
-        elif isinstance(state.get("evaluator_messages")[-1], AIMessage):
-            state["generator_messages"].append(
-                HumanMessage(content=state.get("evaluator_messages")[-1].content))
-            state["evaluator_messages"] = []
+        if isinstance(state.get("messages")[-1], HumanMessage) and not generator_messages:
+            generator_messages = [state.get("messages")[-1]]
+        elif evaluator_messages and isinstance(evaluator_messages[-1], AIMessage):
+            generator_messages.append(
+                HumanMessage(content=evaluator_messages[-1].content))
+            # Reset for the next generation, expressed as a state update
+            # (evaluator_messages has no reducer, so returning [] overwrites it).
+            evaluator_messages = []
 
         response = generator_model.invoke({
-            "messages": state["generator_messages"]
+            "messages": generator_messages
         })
 
         return_state = {
             "messages": [response],
-            "generator_messages": state.get("generator_messages", []) + [response],
-            "evaluator_messages": state.get("evaluator_messages", [])
+            "generator_messages": generator_messages + [response],
+            "evaluator_messages": evaluator_messages
         }
 
         return return_state
