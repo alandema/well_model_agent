@@ -1,5 +1,5 @@
 from operator import add
-from typing import Annotated, NotRequired
+from typing import Annotated
 
 from langgraph.graph import MessagesState
 
@@ -9,3 +9,7 @@ class AgentState(MessagesState):
 
     run_id: Annotated[int, add] = 0
     iteration: Annotated[int, add] = 0
+    generator_messages: list = []
+    evaluator_messages: list = []
+    decision: str = None
+    justification: str = None

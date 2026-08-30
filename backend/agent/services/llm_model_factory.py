@@ -44,8 +44,7 @@ def create_llm_model(llm_model_config: dict, tools: list = None,
             model = prompt | model
     elif output_schema is not None:
         model = model.with_structured_output(
-            output_schema,
-            method="json_schema",
+            output_schema
         )
         if system_prompt:
             prompt = ChatPromptTemplate.from_messages(

@@ -43,29 +43,58 @@ def create_graph(llm_model_config: dict):
         finalizer_model=finalizer_model
     )
 
+    generator_tool_node = ToolNode(GENERATOR_TOOLS)
+
+    def generator_tools(state: AgentState):
+        result = generator_tool_node.invoke(state)
+
+        return {
+            "messages": result["messages"],
+            "generator_messages": state.get("generator_messages", []) + result["messages"],
+        }
+
+    evaluator_tool_node = ToolNode(EVALUATOR_TOOLS)
+
+    def evaluator_tools(state: AgentState):
+        result = evaluator_tool_node.invoke(state)
+
+        return {
+            "messages": result["messages"],
+            "evaluator_messages": state.get("evaluator_messages", []) + result["messages"],
+        }
+
     builder = StateGraph(AgentState)
     builder.add_node("Generator", generator)
-    builder.add_node("generator_tools", ToolNode(GENERATOR_TOOLS))
+    builder.add_node("generator_tools", generator_tools)
     builder.add_node("Evaluator", evaluator)
-    builder.add_node("evaluator_tools", ToolNode(EVALUATOR_TOOLS))
+    builder.add_node("evaluator_tools", evaluator_tools)
     builder.add_node("judge", judge)
     builder.add_node("finalize", finalize)
 
     builder.add_edge(START, "Generator")
     builder.add_conditional_edges(
         "Generator", route_generator,
-        {"generator_tools": "generator_tools","finalize": "finalize"},
+        {
+            "generator_tools": "generator_tools",
+            "finalize": "finalize"
+        },
     )
     builder.add_edge("generator_tools", "Evaluator")
     builder.add_conditional_edges(
         "Evaluator", route_evaluator_tools,
-        {"evaluator_tools": "evaluator_tools", "judge": "judge"},
+        {
+            "evaluator_tools": "evaluator_tools",
+            "judge": "judge"
+        },
     )
     builder.add_edge("evaluator_tools", "Evaluator")
     builder.add_conditional_edges(
         "judge", route_judge,
-        {"Generator": "Generator", "Evaluator": "Evaluator",
-         "finalize": "finalize"},
+        {
+            "Generator": "Generator",
+            "Evaluator": "Evaluator",
+            "finalize": "finalize"
+        },
     )
     builder.add_edge("finalize", END)
 
