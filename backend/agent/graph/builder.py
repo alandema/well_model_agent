@@ -59,7 +59,7 @@ def create_graph(llm_model_config: dict):
         result = evaluator_tool_node.invoke(state)
 
         return {
-            "messages": result["messages"],
+            # Tool results stay in the evaluator's private channel.
             "evaluator_messages": state.get("evaluator_messages", []) + result["messages"],
         }
 

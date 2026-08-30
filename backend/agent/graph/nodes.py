@@ -58,7 +58,8 @@ def create_nodes(generator_model, evaluator_model, judge_model,
         })
 
         return {
-            "messages": [response],
+            # Keep the evaluator's internal traffic out of the shared
+            # `messages` channel; it lives in `evaluator_messages` only.
             "evaluator_messages": state.get("evaluator_messages", []) + [response],
             # Count each evaluator turn as one iteration so the
             # MAX_ITERATIONS checks in the routers actually trigger.
