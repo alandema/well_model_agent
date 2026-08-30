@@ -84,7 +84,10 @@ def create_graph(llm_model_config: dict):
         "Evaluator", route_evaluator_tools,
         {
             "evaluator_tools": "evaluator_tools",
-            "judge": "judge"
+            "judge": "judge",
+            # route_evaluator_tools can return this when the iteration
+            # limit is hit; it must be mapped or LangGraph raises KeyError.
+            "finalize": "finalize"
         },
     )
     builder.add_edge("evaluator_tools", "Evaluator")

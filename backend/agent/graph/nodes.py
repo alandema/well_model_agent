@@ -4,6 +4,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel, Field
 
 from agent.graph.states import AgentState
+from langgraph.types import Overwrite
 
 
 class JudgeOutput(BaseModel):
@@ -76,7 +77,9 @@ def create_nodes(generator_model, evaluator_model, judge_model,
 
         update = {
             "decision": response.decision,
-            "justification": response.justification
+            "justification": response.justification,
+            # Reset iteration count for the next generator-evaluator cycle.
+            "iteration": Overwrite(value=0)
         }
         if response.decision == "reject":
             # Feed the judge's justification back into the evaluator's
