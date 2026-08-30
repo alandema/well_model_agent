@@ -102,5 +102,16 @@ def create_graph(llm_model_config: dict):
         os.path.dirname(__file__), "..", ".checkpoints")
     os.makedirs(checkpoint_dir, exist_ok=True)
     checkpoint_path = os.path.join(checkpoint_dir, "checkpoints.sqlite")
-    conn = sqlite3.connect(checkpoint_path, check_same_thread=False)
+    # Single long-lived connection (the graph is created once at startup).
+    # WAL + busy_timeout make concurrent FastAPI requests safe: WAL allows
+    # a reader and writer in parallel, and busy_timeout makes writers wait
+    # instead of failing with "database is locked".
+    conn = sqlite3.connect(
+        checkpoint_path,
+        check_same_thread=False,
+        timeout=30,
+    )
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    conn.execute("PRAGMA synchronous=NORMAL")
     return builder.compile(checkpointer=SqliteSaver(conn))
