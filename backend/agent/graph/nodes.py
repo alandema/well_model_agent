@@ -63,10 +63,21 @@ def create_nodes(generator_model, evaluator_model, judge_model,
             ))]
         })
 
-        return {
+        update = {
             "decision": response.decision,
             "justification": response.justification
         }
+        if response.decision == "reject":
+            # Feed the judge's justification back into the evaluator's
+            # message list so it can re-run its analysis with the feedback.
+            update["evaluator_messages"] = state.get("evaluator_messages", []) + [
+                HumanMessage(content=(
+                    "The judge rejected your last instruction. "
+                    f"Reason: {response.justification}\n"
+                    "Re-run your analysis and produce a corrected instruction."
+                ))
+            ]
+        return update
 
     def finalize(state: AgentState):
         prompt = HumanMessage(content=(
