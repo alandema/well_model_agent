@@ -43,24 +43,32 @@ def create_graph(llm_model_config: dict):
         finalizer_model=finalizer_model
     )
 
-    generator_tool_node = ToolNode(GENERATOR_TOOLS)
+    # messages_key tells each ToolNode which state channel holds the
+    # agent's pending tool_calls; output ToolMessages use the same key.
+    generator_tool_node = ToolNode(
+        GENERATOR_TOOLS, messages_key="generator_messages")
 
     def generator_tools(state: AgentState):
         result = generator_tool_node.invoke(state)
+        # ToolNode emits ToolMessages under the messages_key, so both
+        # channels are fed from result["generator_messages"]: the shared
+        # transcript (the Evaluator seeds from it) and the private one.
+        tool_messages = result["generator_messages"]
 
         return {
-            "messages": result["messages"],
-            "generator_messages": state.get("generator_messages", []) + result["messages"],
+            "messages": tool_messages,
+            "generator_messages": state.get("generator_messages", []) + tool_messages,
         }
 
-    evaluator_tool_node = ToolNode(EVALUATOR_TOOLS)
+    evaluator_tool_node = ToolNode(
+        EVALUATOR_TOOLS, messages_key="evaluator_messages")
 
     def evaluator_tools(state: AgentState):
         result = evaluator_tool_node.invoke(state)
 
         return {
             # Tool results stay in the evaluator's private channel.
-            "evaluator_messages": state.get("evaluator_messages", []) + result["messages"],
+            "evaluator_messages": state.get("evaluator_messages", []) + result["evaluator_messages"],
         }
 
     builder = StateGraph(AgentState)
