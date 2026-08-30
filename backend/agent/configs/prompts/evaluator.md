@@ -42,9 +42,6 @@
 </guardrails>
 
 <output_format>
-    <field name="stability_classification">With cited evidence</field>
-    <field name="slugging_mechanism">If applicable</field>
-    <field name="production_estimate"></field>
-    <field name="hopf_distance_estimate">Position relative to the bracketed boundary</field>
-    <field name="next_instruction">Concrete next operating point, rationale, and step-size reasoning</field>
+    <field name="reason">Explain the reason of the suggestion for the next operation point, if any. Address this directly to the Judge node. Mention the stability classification, slugging mechanism, production estimate, Hopf point distance, etc.</field>
+    <field name="next_instruction">Concrete instruction with the next operation point to be simulated. Addressed directly to the Generator node.</field>
 </output_format>

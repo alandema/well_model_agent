@@ -9,8 +9,6 @@ def route_generator(state):
 
 
 def route_evaluator_tools(state):
-    if state.get("iteration", 0) >= MAX_ITERATIONS:
-        return "finalize"
     # The evaluator's traffic lives in its private channel now.
     last = state["evaluator_messages"][-1]
     return "evaluator_tools" if getattr(last, "tool_calls", None) else "judge"

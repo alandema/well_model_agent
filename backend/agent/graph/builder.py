@@ -28,6 +28,12 @@ def create_graph(llm_model_config: dict):
         llm_model_config["Evaluator"],
         tools=EVALUATOR_TOOLS
     )
+    # Tool-free copy of the evaluator model, used only when the iteration
+    # limit is reached so the evaluator is forced to emit a final message
+    # instead of another tool call.
+    evaluator_model_no_tools = create_llm_model(
+        llm_model_config["Evaluator"]
+    )
     judge_model = create_llm_model(
         llm_model_config["Judge"],
         output_schema=JudgeOutput
@@ -40,7 +46,8 @@ def create_graph(llm_model_config: dict):
         generator_model=generator_model,
         evaluator_model=evaluator_model,
         judge_model=judge_model,
-        finalizer_model=finalizer_model
+        finalizer_model=finalizer_model,
+        evaluator_model_no_tools=evaluator_model_no_tools
     )
 
     # messages_key tells each ToolNode which state channel holds the
@@ -92,10 +99,7 @@ def create_graph(llm_model_config: dict):
         "Evaluator", route_evaluator_tools,
         {
             "evaluator_tools": "evaluator_tools",
-            "judge": "judge",
-            # route_evaluator_tools can return this when the iteration
-            # limit is hit; it must be mapped or LangGraph raises KeyError.
-            "finalize": "finalize"
+            "judge": "judge"
         },
     )
     builder.add_edge("evaluator_tools", "Evaluator")

@@ -3,6 +3,7 @@ from typing import Literal
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import BaseModel, Field
 
+from agent.graph.edges import MAX_ITERATIONS
 from agent.graph.states import AgentState
 from langgraph.types import Overwrite
 
@@ -19,7 +20,7 @@ class JudgeOutput(BaseModel):
 
 
 def create_nodes(generator_model, evaluator_model, judge_model,
-                 finalizer_model):
+                 finalizer_model, evaluator_model_no_tools=None):
     """Create the workflow nodes with their configured models."""
 
     def generator(state: AgentState):
@@ -54,9 +55,22 @@ def create_nodes(generator_model, evaluator_model, judge_model,
         if isinstance(state.get("messages")[-1], ToolMessage) and not state.get("evaluator_messages"):
             state["evaluator_messages"] = state.get("messages")[-2:]
 
-        response = evaluator_model.invoke({
-            "messages": state["evaluator_messages"]
-        })
+        # When the iteration limit is reached, force the evaluator to stop
+        # calling tools and produce a final message instead of routing to
+        # finalize. Re-invoking the model without bound tools guarantees the
+        # response has no tool_calls, so the router sends it to the judge.
+        if state.get("iteration", 0) >= MAX_ITERATIONS and evaluator_model_no_tools is not None:
+            response = evaluator_model_no_tools.invoke({
+                "messages": state.get("evaluator_messages", []) + [HumanMessage(content=(
+                    "You have reached the maximum number of tool-calling iterations. "
+                    "Do not call any more tools. Based on the information gathered so far, "
+                    "produce your final instruction now."
+                ))]
+            })
+        else:
+            response = evaluator_model.invoke({
+                "messages": state["evaluator_messages"]
+            })
 
         return {
             # Keep the evaluator's internal traffic out of the shared
