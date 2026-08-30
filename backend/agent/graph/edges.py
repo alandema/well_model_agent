@@ -12,8 +12,9 @@ def route_evaluator_tools(state):
 
 
 def route_judge(state):
-    evaluation = state.get("evaluation", {})
-    if (evaluation.get("grade") == "acceptable" or
-            state.get("iteration", 0) >= MAX_ITERATIONS):
+    decision = state.get("decision")
+    if state.get("iteration", 0) >= MAX_ITERATIONS:
         return "finalize"
-    return "Generator"
+    if decision == "accept":
+        return "Generator"
+    return "Evaluator"

@@ -1,6 +1,6 @@
 {
     "principal": {
-        "model_id": "poolside/laguna-s-2.1:free",
+        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -10,7 +10,7 @@
         "system_prompt_path": "prompts/principal.md"
     },
     "Generator": {
-        "model_id": "openai/gpt-5.6-luna",
+        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -20,7 +20,7 @@
         "system_prompt_path": "prompts/generator.md"
     },
     "Evaluator": {
-        "model_id": "openai/gpt-5.6-luna",
+        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -30,7 +30,7 @@
         "system_prompt_path": "prompts/evaluator.md"
     },
     "Judge": {
-        "model_id": "poolside/laguna-s-2.1:free",
+        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -39,8 +39,8 @@
         },
         "system_prompt_path": "prompts/judge.md"
     },
-    "Finalizer": {
-        "model_id": "poolside/laguna-s-2.1:free",
+    "finalizer": {
+        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
         "model_config": {
             "temperature": 0,
             "reasoning": {

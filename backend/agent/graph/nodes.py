@@ -1,9 +1,9 @@
 from typing import Literal
 
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from pydantic import BaseModel, Field
 
-from agent.graph.state import AgentState
+from agent.graph.states import AgentState
 
 class JudgeOutput(BaseModel):
     """Small, machine-readable contract for the judge."""
@@ -34,10 +34,17 @@ def create_nodes(generator_model, evaluator_model, judge_model,
         return {"messages": [response]}
 
     def judge(state: AgentState):
-        response = judge_model.invoke({
-            "messages": state["messages"][-1]
+        output = judge_model.invoke({
+            "messages": state["messages"]
         })
-        return {"messages": [response]}
+        decision = getattr(output, "decision", None)
+        justification = getattr(output, "justification", "")
+        return {
+            "messages": [AIMessage(content=justification)],
+            "decision": decision,
+            "justification": justification,
+            "iteration": 1,
+        }
 
     def finalize(state: AgentState):
         prompt = HumanMessage(content=(

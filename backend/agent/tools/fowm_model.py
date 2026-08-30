@@ -5,7 +5,7 @@ import datetime
 import numpy as np
 from pydantic import BaseModel, Field
 from langchain.tools import tool, ToolRuntime
-from agent.graph.state import AgentState
+from agent.graph.states import AgentState
 import pint
 
 from agent.services.config import load_config
