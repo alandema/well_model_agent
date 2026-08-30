@@ -52,7 +52,10 @@ def create_nodes(generator_model, evaluator_model, judge_model,
 
         return {
             "messages": [response],
-            "evaluator_messages": state.get("evaluator_messages", []) + [response]
+            "evaluator_messages": state.get("evaluator_messages", []) + [response],
+            # Count each evaluator turn as one iteration so the
+            # MAX_ITERATIONS checks in the routers actually trigger.
+            "iteration": 1
         }
 
     def judge(state: AgentState):
