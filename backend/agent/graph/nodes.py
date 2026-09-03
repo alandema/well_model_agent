@@ -59,6 +59,11 @@ def create_nodes(generator_model, evaluator_model, judge_model,
         # calling tools and produce a final message instead of routing to
         # finalize. Re-invoking the model without bound tools guarantees the
         # response has no tool_calls, so the router sends it to the judge.
+        # Give the model visibility into where it is in the iteration budget.
+        counter = HumanMessage(content=(
+            f"You are on iteration {state.get('iteration', 0) + 1} of {MAX_ITERATIONS}."
+        ))
+
         if state.get("iteration", 0) >= MAX_ITERATIONS and evaluator_model_no_tools is not None:
             response = evaluator_model_no_tools.invoke({
                 "messages": state.get("evaluator_messages", []) + [HumanMessage(content=(
@@ -69,7 +74,7 @@ def create_nodes(generator_model, evaluator_model, judge_model,
             })
         else:
             response = evaluator_model.invoke({
-                "messages": state["evaluator_messages"]
+                "messages": state["evaluator_messages"] + [counter]
             })
 
         return {
