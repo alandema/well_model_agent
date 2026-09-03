@@ -260,6 +260,18 @@ def fowm_model(
     return {
         "file_path": os.path.abspath(file_path),
         "columns": header,
+        # Resolved input values actually used in the simulation. Pydantic
+        # fills schema defaults before this body runs, so these are correct
+        # even when the caller invoked the tool with empty/default args.
+        "inputs_used": {
+            "gas_injection_rate": f"{gas_injection_rate.value} {gas_injection_rate.unit}",
+            "choke_opening": f"{choke_opening.value} {choke_opening.unit}",
+            "separator_pressure": f"{separator_pressure.value} {separator_pressure.unit}",
+            "reservoir_pressure": f"{reservoir_pressure.value} {reservoir_pressure.unit}",
+            "integration_time": integration_time,
+            "time_points": time_points,
+            "x0": x0,
+        },
         "final_well_states": {
             "x1": np.round(sol[-1, 0], 3),
             "x2": np.round(sol[-1, 1], 3),
