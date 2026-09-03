@@ -11,12 +11,12 @@ from agent.graph.states import AgentState
 from agent.services.llm_model_factory import create_llm_model
 from agent.tools.fowm_model import fowm_model
 from agent.tools.multi_well_model import multi_well_model
+from agent.tools.python_repl import python_repl
 from agent.tools.read_csv import read_csv
 from agent.tools.summarize_csv import summarize_csv
-from agent.tools.terminal import terminal
 
 GENERATOR_TOOLS = [fowm_model, multi_well_model]
-EVALUATOR_TOOLS = [summarize_csv, read_csv, terminal]
+EVALUATOR_TOOLS = [summarize_csv, read_csv, python_repl]
 
 
 def create_graph(llm_model_config: dict):

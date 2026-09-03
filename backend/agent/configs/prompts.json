@@ -1,50 +1,50 @@
 {
     "principal": {
-        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
-                "effort": "high"
+                "effort": "medium"
             }
         },
         "system_prompt_path": "prompts/principal.md"
     },
     "Generator": {
-        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
-                "effort": "high"
+                "effort": "medium"
             }
         },
         "system_prompt_path": "prompts/generator.md"
     },
     "Evaluator": {
-        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
-                "effort": "high"
+                "effort": "medium"
             }
         },
         "system_prompt_path": "prompts/evaluator.md"
     },
     "Judge": {
-        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
-                "effort": "high"
+                "effort": "medium"
             }
         },
         "system_prompt_path": "prompts/judge.md"
     },
     "finalizer": {
-        "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
-                "effort": "high"
+                "effort": "medium"
             }
         },
         "system_prompt_path": "prompts/finalizer.md"
