@@ -13,8 +13,8 @@ from agent.services.model_runner import run_odeint
 
 # Directory where model outputs are written as CSV files.
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
-MODELS_CONFIG_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "configs", "models_config.json"
+WELL_MODELS_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "configs", "well_models_config.json"
 )
 
 
@@ -209,7 +209,7 @@ def fowm_model(
     current_run_id = runtime.state.get("run_id")
 
     try:
-        config = load_config(MODELS_CONFIG_PATH)
+        config = load_config(WELL_MODELS_CONFIG_PATH)
 
         # ureg = pint.UnitRegistry()
 
