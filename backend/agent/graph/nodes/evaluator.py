@@ -6,7 +6,7 @@ Consumers (generator, judge, edges) import it from here.
 
 from typing import Literal
 
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage, merge_message_runs
 from pydantic import BaseModel, Field
 
 from agent.graph.constants import MAX_ITERATIONS
@@ -89,9 +89,8 @@ class EvaluatorNode:
 
         messages = state.get("evaluator_messages", []) + [counter]
         if self._system:
-            messages = [self._system] + messages
-
-        messages = [previous_runs] + messages
+            messages = merge_message_runs(
+                [self._system, previous_runs]) + messages
 
         response = model.invoke(messages)
 
