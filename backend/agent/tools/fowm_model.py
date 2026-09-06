@@ -127,7 +127,7 @@ class PhysicalValue(BaseModel):
     value: float = Field(...,
                          description="The numerical value of the physical quantity.")
     unit: str = Field(...,
-                      description="The unit of the physical quantity as per Pint python library (e.g., 'Pa', 'm³/day').")
+                      description="The unit of the physical quantity as per Pint python library (e.g., 'Pa', 'm^3/day').")
 
 
 class FowmModelInput(BaseModel):
