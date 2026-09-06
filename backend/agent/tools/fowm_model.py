@@ -115,7 +115,10 @@ def fowm(initial_conditions, t, params):
     dx6 = Wr * (1.0 - ALFAgw) - Wwhl
 
     dx = [dx1, dx2, dx3, dx4, dx5, dx6]
-    outputs = {"Ppdg": Ppdg, "Ptt": Ptt, "Prt": Prt, "Prb": Prb}
+    outputs = {
+        "PDG_pressure": Ppdg,
+        "oil_flow_rate": Wlout,
+    }
     return dx, outputs
 
 
@@ -271,14 +274,6 @@ def fowm_model(
             "integration_time": integration_time,
             "time_points": time_points,
             "x0": x0,
-        },
-        "final_well_states": {
-            "x1": np.round(sol[-1, 0], 3),
-            "x2": np.round(sol[-1, 1], 3),
-            "x3": np.round(sol[-1, 2], 3),
-            "x4": np.round(sol[-1, 3], 3),
-            "x5": np.round(sol[-1, 4], 3),
-            "x6": np.round(sol[-1, 5], 3)
         },
         "message": f"Results saved to {os.path.abspath(file_path)}.",
         "run_id": current_run_id
