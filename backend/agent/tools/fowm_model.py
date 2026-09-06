@@ -171,15 +171,6 @@ def _convert_physical_value(value, target_unit, ureg):
     return (physical_value.value * ureg(physical_value.unit)).to(target_unit).magnitude
 
 
-def _convert_configured_values(configured_values, target_units, ureg):
-    """Convert configured physical values to the model's calculation units."""
-    return {
-        name: _convert_physical_value(value, target_units[name], ureg)
-        for name, value in configured_values.items()
-        if name in target_units
-    }
-
-
 @tool(
     args_schema=FowmModelInput,
     description=(
