@@ -44,4 +44,5 @@
 <output_format>
     <field name="reason">Explain the reason of the suggestion for the next operation point, if any. Address this directly to the Judge node. Mention the stability classification, slugging mechanism, production estimate, Hopf point distance, etc.</field>
     <field name="next_instruction">Concrete instruction with the next operation point to be simulated. Addressed directly to the Generator node.</field>
+    <rule name="operational_state_trailer">Always end your final response with a single line `OPERATIONAL_STATE: steady` or `OPERATIONAL_STATE: slugging` — the regime you classified for the operating point of the run you just analyzed. Use the one that best matches: `steady` for a stable (or acceptably stable) response, `slugging` otherwise. This machine-readable trailer is parsed by the pipeline; omitting it loses the record of how that run behaved.</rule>
 </output_format>
