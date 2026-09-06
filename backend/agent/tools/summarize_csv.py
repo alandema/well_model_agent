@@ -14,7 +14,7 @@ class CSVSummaryInput(BaseModel):
                            description="Path to the CSV file to summarize.")
     columns: list[str] | None = Field(
         None,
-        description="Numeric columns to summarize, for example ['t', 'Ppdg'].",
+        description="Numeric columns to summarize, for example ['t', 'PDG_pressure'].",
     )
 
 

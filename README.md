@@ -192,7 +192,7 @@ Simulation controls are also parameters of the `fowm_model` tool:
 
 Both controls default to `100000` seconds and `1001` time points when the agent does not specify them. They are not direct frontend or API request fields; they are tool arguments selected by the agent.
 
-Each successful simulation writes a timestamped CSV file containing `t`, six state variables (`x1` through `x6`), and the calculated `Ppdg`, `Ptt`, `Prt`, and `Prb` pressures to `backend/agent/.outputs/`. The tool returns the absolute path inside the container, for example `/app/agent/.outputs/fowm_YYYY-MM-DD_HH-MM-SS.csv`. The `summarize_csv` and `read_csv` tools accept these container paths.
+Each successful simulation writes a timestamped CSV file containing `t`, six state variables (`x1` through `x6`), and the calculated `PDG_pressure` and `oil_flow_rate` outputs to `backend/agent/.outputs/`. The tool returns the absolute path inside the container, for example `/app/agent/.outputs/fowm_YYYY-MM-DD_HH-MM-SS.csv`. The `summarize_csv` and `read_csv` tools accept these container paths.
 
 The other registered tools are:
 
