@@ -1,3 +1,4 @@
+import re
 from typing import Literal
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -60,8 +61,21 @@ def create_nodes(generator_model, evaluator_model, judge_model,
         # finalize. Re-invoking the model without bound tools guarantees the
         # response has no tool_calls, so the router sends it to the judge.
         # Give the model visibility into where it is in the iteration budget.
+        # Include the minimal run ledger so the evaluator knows which
+        # operating points were already simulated and how each behaved,
+        # without any stale tool results in its context.
+        ledger = state.get("simulated_runs") or []
+        if ledger:
+            ledger_lines = "\n".join(
+                f"- run {i + 1}: {entry['params']} -> {entry['operational_state']}"
+                for i, entry in enumerate(ledger)
+            )
+        else:
+            ledger_lines = "- (no runs logged yet)"
         counter = HumanMessage(content=(
-            f"You are on iteration {state.get('iteration', 0) + 1} of {MAX_ITERATIONS}."
+            f"You are on iteration {state.get('iteration', 0) + 1} of {MAX_ITERATIONS}.\n"
+            "Operating points already simulated (from the run ledger):\n"
+            f"{ledger_lines}"
         ))
 
         if state.get("iteration", 0) >= MAX_ITERATIONS and evaluator_model_no_tools is not None:
@@ -77,13 +91,37 @@ def create_nodes(generator_model, evaluator_model, judge_model,
                 "messages": state["evaluator_messages"] + [counter]
             })
 
+        # When the evaluator produced its final instruction (no tool calls),
+        # capture the operational state it classified for the just-simulated
+        # params and commit one ledger entry: {params, operational_state}.
+        # This is the only memory kept between evaluator loops — no stale
+        # tool calls or results.
+        run_entry = None
+        if not getattr(response, "tool_calls", None):
+            pending_params = state.get("pending_params")
+            # .text is a property in this langchain-core version; fall back
+            # to .content if it's ever a method or missing.
+            text = response.text if isinstance(
+                getattr(response, "text", None), str) else str(response.content)
+            match = re.search(
+                r"OPERATIONAL_STATE:\s*(steady|slugging)", text, re.IGNORECASE)
+            if pending_params is not None:
+                run_entry = {
+                    "params": pending_params,
+                    "operational_state": match.group(1).lower() if match else "unknown",
+                }
+
         return {
             # Keep the evaluator's internal traffic out of the shared
             # `messages` channel; it lives in `evaluator_messages` only.
             "evaluator_messages": state.get("evaluator_messages", []) + [response],
             # Count each evaluator turn as one iteration so the
             # MAX_ITERATIONS checks in the routers actually trigger.
-            "iteration": 1
+            "iteration": 1,
+            # Commit the ledger entry when the cycle completed; consumed
+            # params are dropped by setting pending_params back to None.
+            **({"simulated_runs": [run_entry], "pending_params": None}
+               if run_entry else {}),
         }
 
     def judge(state: AgentState):

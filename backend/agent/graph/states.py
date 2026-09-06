@@ -13,3 +13,12 @@ class AgentState(MessagesState):
     evaluator_messages: list = []
     decision: str = None
     justification: str = None
+    # Operating point of the most recent FOWM run, extracted from the tool
+    # response by generator_tools. Plain field (last-write-wins): it always
+    # holds the LATEST simulated params and is consumed (set to None) by the
+    # evaluator once logged into simulated_runs.
+    pending_params: dict = None
+    # Minimal run ledger: one entry {params, operational_state} per completed
+    # generator->evaluator cycle. Accumulated with add so the evaluator can
+    # see what was already simulated without any stale tool traffic.
+    simulated_runs: Annotated[list, add] = []
