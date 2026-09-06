@@ -1,115 +1,33 @@
-import json
+"""Graph wiring: instantiates nodes and connects them. No model or tool
+logic lives here — each node owns its own binding and system prompt."""
+
 import os
 import sqlite3
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.prebuilt import ToolNode
 
 from agent.graph.edges import route_evaluator_tools, route_generator, route_judge
-from agent.graph.nodes import EvaluatorOutput, JudgeOutput, create_nodes
+from agent.graph.nodes import (
+    EvaluatorNode,
+    EvaluatorToolsNode,
+    FinalizerNode,
+    GeneratorNode,
+    GeneratorToolsNode,
+    JudgeNode,
+)
 from agent.graph.states import AgentState
-from agent.services.llm_model_factory import create_llm_model
-from agent.tools.fowm_model import fowm_model
-from agent.tools.multi_well_model import multi_well_model
-from agent.tools.python_repl import python_repl
-from agent.tools.read_csv import read_csv
-from agent.tools.summarize_csv import summarize_csv
-
-GENERATOR_TOOLS = [fowm_model, multi_well_model]
-EVALUATOR_TOOLS = [summarize_csv, read_csv, python_repl]
 
 
 def create_graph(llm_model_config: dict):
-    generator_model = create_llm_model(
-        llm_model_config["Generator"],
-        tools=GENERATOR_TOOLS
-    )
-    # The structured-output schema is bound as an extra tool: the evaluator
-    # mixes ordinary analysis tool calls with a final EvaluatorOutput call
-    # once no more analysis is needed (schema-as-tool pattern).
-    evaluator_model = create_llm_model(
-        llm_model_config["Evaluator"],
-        tools=EVALUATOR_TOOLS + [EvaluatorOutput]
-    )
-    # Copy of the evaluator model without analysis tools, used only when the
-    # iteration limit is reached so the evaluator can only emit the
-    # structured EvaluatorOutput call instead of more analysis tools.
-    evaluator_model_no_tools = create_llm_model(
-        llm_model_config["Evaluator"],
-        tools=[EvaluatorOutput]
-    )
-    judge_model = create_llm_model(
-        llm_model_config["Judge"],
-        output_schema=JudgeOutput
-    )
-    finalizer_model = create_llm_model(
-        llm_model_config["finalizer"]
-    )
-
-    generator, evaluator, judge, finalize = create_nodes(
-        generator_model=generator_model,
-        evaluator_model=evaluator_model,
-        judge_model=judge_model,
-        finalizer_model=finalizer_model,
-        evaluator_model_no_tools=evaluator_model_no_tools
-    )
-
-    # messages_key tells each ToolNode which state channel holds the
-    # agent's pending tool_calls; output ToolMessages use the same key.
-    generator_tool_node = ToolNode(
-        GENERATOR_TOOLS, messages_key="generator_messages")
-
-    def generator_tools(state: AgentState):
-        result = generator_tool_node.invoke(state)
-        # ToolNode emits ToolMessages under the messages_key, so both
-        # channels are fed from result["generator_messages"]: the shared
-        # transcript (the Evaluator seeds from it) and the private one.
-        tool_messages = result["generator_messages"]
-
-        # The FOWM tool echoes the resolved operating point back in its
-        # response ("inputs_used"). Grab it from the tool result — not the
-        # tool call args — so defaults filled by Pydantic are included.
-        # ToolNode serializes dict returns into JSON strings, so try both.
-        pending_params = None
-        for msg in reversed(tool_messages):
-            content = getattr(msg, "content", None)
-            if isinstance(content, dict) and "inputs_used" in content:
-                pending_params = content["inputs_used"]
-                break
-            if isinstance(content, str):
-                try:
-                    parsed = json.loads(content)
-                except (json.JSONDecodeError, ValueError):
-                    continue
-                if isinstance(parsed, dict) and "inputs_used" in parsed:
-                    pending_params = parsed["inputs_used"]
-                    break
-
-        return {
-            "messages": tool_messages,
-            "generator_messages": state.get("generator_messages", []) + tool_messages,
-            "pending_params": pending_params,
-        }
-
-    evaluator_tool_node = ToolNode(
-        EVALUATOR_TOOLS, messages_key="evaluator_messages")
-
-    def evaluator_tools(state: AgentState):
-        result = evaluator_tool_node.invoke(state)
-
-        return {
-            # Tool results stay in the evaluator's private channel.
-            "evaluator_messages": state.get("evaluator_messages", []) + result["evaluator_messages"],
-        }
-
     builder = StateGraph(AgentState)
-    builder.add_node("Generator", generator)
-    builder.add_node("generator_tools", generator_tools)
-    builder.add_node("Evaluator", evaluator)
-    builder.add_node("evaluator_tools", evaluator_tools)
-    builder.add_node("judge", judge)
-    builder.add_node("finalize", finalize)
+
+    builder.add_node("Generator", GeneratorNode(llm_model_config["Generator"]))
+    builder.add_node("generator_tools", GeneratorToolsNode())
+    builder.add_node("Evaluator", EvaluatorNode(llm_model_config["Evaluator"]))
+    builder.add_node("evaluator_tools", EvaluatorToolsNode())
+    builder.add_node("judge", JudgeNode(llm_model_config["Judge"]))
+    builder.add_node("finalize", FinalizerNode(llm_model_config["finalizer"]))
 
     builder.add_edge(START, "Generator")
     builder.add_conditional_edges(
@@ -138,6 +56,10 @@ def create_graph(llm_model_config: dict):
     )
     builder.add_edge("finalize", END)
 
+    return builder.compile(checkpointer=create_checkpointer())
+
+
+def create_checkpointer() -> SqliteSaver:
     checkpoint_dir = os.path.join(
         os.path.dirname(__file__), "..", ".checkpoints")
     os.makedirs(checkpoint_dir, exist_ok=True)
@@ -154,4 +76,4 @@ def create_graph(llm_model_config: dict):
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=30000")
     conn.execute("PRAGMA synchronous=NORMAL")
-    return builder.compile(checkpointer=SqliteSaver(conn))
+    return SqliteSaver(conn)
