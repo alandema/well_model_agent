@@ -1,4 +1,3 @@
-import re
 from typing import Literal
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -20,6 +19,20 @@ class JudgeOutput(BaseModel):
     )
 
 
+class EvaluatorOutput(BaseModel):
+    """Small, machine-readable contract for the evaluator."""
+
+    operational_state: Literal["steady", "slugging", "unknown"] = Field(
+        description="The operational state of the simulated production run."
+    )
+    generator_instructions: str = Field(
+        description="The instructions for the generator to follow in the next iteration."
+    )
+    justification: str = Field(
+        description="Concise justification for the operational state, to be used as feedback for the generator."
+    )
+
+
 def create_nodes(generator_model, evaluator_model, judge_model,
                  finalizer_model, evaluator_model_no_tools=None):
     """Create the workflow nodes with their configured models."""
@@ -33,9 +46,13 @@ def create_nodes(generator_model, evaluator_model, judge_model,
             # Fresh user input (first turn or a follow-up message):
             # always append it to the generator's conversation.
             generator_messages.append(state.get("messages")[-1])
-        elif evaluator_messages and isinstance(evaluator_messages[-1], AIMessage):
-            generator_messages.append(
-                HumanMessage(content=evaluator_messages[-1].content))
+        elif state.get("evaluator_output"):
+            # Structured feedback from the evaluator's final EvaluatorOutput
+            # tool call — no free-text parsing needed.
+            output = state["evaluator_output"]
+            generator_messages.append(HumanMessage(content=(
+                f"Next instruction: {output.get('generator_instructions')}"
+            )))
             # Reset for the next generation, expressed as a state update
             # (evaluator_messages has no reducer, so returning [] overwrites it).
             evaluator_messages = []
@@ -47,7 +64,10 @@ def create_nodes(generator_model, evaluator_model, judge_model,
         return_state = {
             "messages": [response],
             "generator_messages": generator_messages + [response],
-            "evaluator_messages": evaluator_messages
+            "evaluator_messages": evaluator_messages,
+            # Plain field (last-write-wins): consumed feedback is cleared so a
+            # stale instruction can never leak into a later cycle.
+            "evaluator_output": None
         }
 
         return return_state
@@ -82,8 +102,9 @@ def create_nodes(generator_model, evaluator_model, judge_model,
             response = evaluator_model_no_tools.invoke({
                 "messages": state.get("evaluator_messages", []) + [HumanMessage(content=(
                     "You have reached the maximum number of tool-calling iterations. "
-                    "Do not call any more tools. Based on the information gathered so far, "
-                    "produce your final instruction now."
+                    "Do not call any more analysis tools. Based on the information "
+                    "gathered so far, produce your final answer now by calling the "
+                    "EvaluatorOutput tool."
                 ))]
             })
         else:
@@ -91,24 +112,26 @@ def create_nodes(generator_model, evaluator_model, judge_model,
                 "messages": state["evaluator_messages"] + [counter]
             })
 
-        # When the evaluator produced its final instruction (no tool calls),
-        # capture the operational state it classified for the just-simulated
-        # params and commit one ledger entry: {params, operational_state}.
-        # This is the only memory kept between evaluator loops — no stale
-        # tool calls or results.
+        # When the evaluator finished with its structured EvaluatorOutput tool
+        # call, parse the payload directly from the tool-call args (no regex
+        # over free text), expose it downstream for the Judge/Generator, and
+        # commit one ledger entry: {params, operational_state}. This is the
+        # only memory kept between evaluator loops — no stale tool results.
         run_entry = None
-        if not getattr(response, "tool_calls", None):
+        evaluator_output = None
+        tool_calls = getattr(response, "tool_calls", None) or []
+        structured_call = next(
+            (tc for tc in tool_calls if tc.get("name") == "EvaluatorOutput"),
+            None,
+        )
+        if structured_call is not None:
+            evaluator_output = EvaluatorOutput(
+                **structured_call["args"]).model_dump()
             pending_params = state.get("pending_params")
-            # .text is a property in this langchain-core version; fall back
-            # to .content if it's ever a method or missing.
-            text = response.text if isinstance(
-                getattr(response, "text", None), str) else str(response.content)
-            match = re.search(
-                r"OPERATIONAL_STATE:\s*(steady|slugging)", text, re.IGNORECASE)
             if pending_params is not None:
                 run_entry = {
                     "params": pending_params,
-                    "operational_state": match.group(1).lower() if match else "unknown",
+                    "operational_state": evaluator_output["operational_state"],
                 }
 
         return {
@@ -120,15 +143,27 @@ def create_nodes(generator_model, evaluator_model, judge_model,
             "iteration": 1,
             # Commit the ledger entry when the cycle completed; consumed
             # params are dropped by setting pending_params back to None.
+            # Expose the parsed structured answer for the Judge/Generator;
+            # consumed by the Generator next cycle and cleared there.
+            **({"evaluator_output": evaluator_output}
+               if evaluator_output else {}),
+            # Commit the ledger entry when the cycle completed; consumed
+            # params are dropped by setting pending_params back to None.
             **({"simulated_runs": [run_entry], "pending_params": None}
                if run_entry else {}),
         }
 
     def judge(state: AgentState):
+        output = state.get("evaluator_output") or {}
+        summary = (
+            f"Operational state: {output.get('operational_state', 'unknown')}\n"
+            f"Justification: {output.get('justification', 'N/A')}\n"
+            f"Next instruction: {output.get('generator_instructions', 'N/A')}"
+        )
         response = judge_model.invoke({
             "messages": [HumanMessage(content=(
                 "Based on the evaluator's output, decide whether to accept or reject the instructions."
-                f"```\n{state.get('evaluator_messages', [])[-1].text if state.get('evaluator_messages', []) else 'No output yet.'}\n```"
+                f"\n```\n{summary}\n```"
             ))]
         })
 

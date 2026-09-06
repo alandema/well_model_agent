@@ -42,7 +42,10 @@
 </guardrails>
 
 <output_format>
-    <field name="reason">Explain the reason of the suggestion for the next operation point, if any. Address this directly to the Judge node. Mention the stability classification, slugging mechanism, production estimate, Hopf point distance, etc.</field>
-    <field name="next_instruction">Concrete instruction with the next operation point to be simulated. Addressed directly to the Generator node.</field>
-    <rule name="operational_state_trailer">Always end your final response with a single line `OPERATIONAL_STATE: steady` or `OPERATIONAL_STATE: slugging` — the regime you classified for the operating point of the run you just analyzed. Use the one that best matches: `steady` for a stable (or acceptably stable) response, `slugging` otherwise. This machine-readable trailer is parsed by the pipeline; omitting it loses the record of how that run behaved.</rule>
+    <rule name="analysis_tools">While you still need data, call the analysis tools (`summarize_csv`, `read_csv`, `python_repl`) as usual; their results feed your reasoning.</rule>
+    <rule name="structured_final_answer">When your analysis is complete and no further tool calls are needed, you MUST finish by calling the `EvaluatorOutput` tool exactly once — never end with plain text. It carries your whole final answer:
+        <field name="operational_state">`steady` for a stable (or acceptably stable) response of the run you just analyzed, `slugging` otherwise, `unknown` only if the run is too short, unconverged, or ambiguous to classify.</field>
+        <field name="generator_instructions">Concrete instruction with the next operation point to be simulated (or the corrective re-run), addressed directly to the Generator node.</field>
+        <field name="justification">Reasoning for the suggestion, addressed directly to the Judge node: stability classification, slugging mechanism, production estimate, Hopf point distance, cited evidence, expected outcome and confidence.</field>
+    This structured tool call replaces any free-text trailer (such as `OPERATIONAL_STATE:`); the pipeline parses it directly from the tool-call arguments.</rule>
 </output_format>

@@ -7,7 +7,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from agent.graph.edges import route_evaluator_tools, route_generator, route_judge
-from agent.graph.nodes import JudgeOutput, create_nodes
+from agent.graph.nodes import EvaluatorOutput, JudgeOutput, create_nodes
 from agent.graph.states import AgentState
 from agent.services.llm_model_factory import create_llm_model
 from agent.tools.fowm_model import fowm_model
@@ -25,15 +25,19 @@ def create_graph(llm_model_config: dict):
         llm_model_config["Generator"],
         tools=GENERATOR_TOOLS
     )
+    # The structured-output schema is bound as an extra tool: the evaluator
+    # mixes ordinary analysis tool calls with a final EvaluatorOutput call
+    # once no more analysis is needed (schema-as-tool pattern).
     evaluator_model = create_llm_model(
         llm_model_config["Evaluator"],
-        tools=EVALUATOR_TOOLS
+        tools=EVALUATOR_TOOLS + [EvaluatorOutput]
     )
-    # Tool-free copy of the evaluator model, used only when the iteration
-    # limit is reached so the evaluator is forced to emit a final message
-    # instead of another tool call.
+    # Copy of the evaluator model without analysis tools, used only when the
+    # iteration limit is reached so the evaluator can only emit the
+    # structured EvaluatorOutput call instead of more analysis tools.
     evaluator_model_no_tools = create_llm_model(
-        llm_model_config["Evaluator"]
+        llm_model_config["Evaluator"],
+        tools=[EvaluatorOutput]
     )
     judge_model = create_llm_model(
         llm_model_config["Judge"],

@@ -11,6 +11,10 @@ class AgentState(MessagesState):
     iteration: Annotated[int, add] = 0
     generator_messages: list = []
     evaluator_messages: list = []
+    # Parsed final answer of the evaluator (dict form of EvaluatorOutput):
+    # {operational_state, generator_instructions, justification}. Consumed
+    # by the Generator (as feedback) and the Judge (for review), then reset.
+    evaluator_output: dict = None
     decision: str = None
     justification: str = None
     # Operating point of the most recent FOWM run, extracted from the tool
