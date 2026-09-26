@@ -75,6 +75,7 @@ class EvaluatorNode:
             ledger_lines = "- (no runs logged yet)"
         counter = HumanMessage(content=(
             f"You are on iteration {state.get('iteration', 0) + 1} of {MAX_ITERATIONS}.\n"
+            "You must produce a final answer by the last iteration, and it must not call any analysis tools.\n"
         ))
 
         previous_runs = SystemMessage(content=(
