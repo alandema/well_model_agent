@@ -28,18 +28,29 @@ if prompt := st.chat_input("Ask the well model agent..."):
 
     # Call the FastAPI /chat endpoint
     with st.chat_message("assistant"):
+        data = None
+        error = None
         with st.spinner("Thinking..."):
             try:
                 payload = {
                     "message": prompt,
                     "thread_id": st.session_state.thread_id,
                 }
-                resp = requests.post(CHAT_URL, json=payload, timeout=600)
+                resp = requests.post(CHAT_URL, json=payload, timeout=10)
                 resp.raise_for_status()
                 data = resp.json()
             except requests.RequestException as e:
-                st.error(f"Request failed: {e}")
-                st.stop()
+                error = e
+
+        # Handle the error *after* the spinner context has exited, so the
+        # "Thinking..." spinner is cleared before the script stops.
+        if error is not None:
+            error_message = f"Request failed: {error}"
+            st.error(error_message)
+            st.session_state.messages.append(
+                {"role": "assistant", "content": error_message}
+            )
+            st.stop()
 
         answer = data.get("response", "")
         st.session_state.thread_id = data.get("thread_id")
