@@ -115,6 +115,8 @@ def fowm(initial_conditions, t, params):
     dx = [dx1, dx2, dx3, dx4, dx5, dx6]
     outputs = {
         "PDG_pressure": Ppdg,
+        "top_riser_pressure": Prt,
+        "flowline_pressure": Prb,
         "oil_flow_rate": Wlout,
     }
     return dx, outputs
@@ -170,4 +172,4 @@ def run_fowm_step(x, step_seconds, params):
     back into the next call to keep the simulation continuous.
     """
     sol, outputs, _ = run_odeint(fowm, list(x), step_seconds, params, 2)
-    return sol[-1], outputs[-1]["PDG_pressure"]
+    return sol[-1], outputs[-1]

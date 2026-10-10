@@ -20,6 +20,9 @@ CONTROL_ROOM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SENSOR_CHANNEL_MAPS = {
     "channel_0": "PDG Pressure",
+    "channel_1": "Top Riser Pressure",
+    "channel_2": "Flowline Pressure",
+    "channel_3": "Oil Flow Rate",
 }
 
 HISTORY_ROWS = 300
@@ -110,7 +113,7 @@ def show_readings() -> None:
             ),
         )
         st.subheader(sensor_name)
-        st.components.v1.html(chart_html, height=500)
+        st.iframe(chart_html, height=500)
 
 
 show_readings()

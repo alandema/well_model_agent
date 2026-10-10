@@ -21,9 +21,13 @@ CONFIG_PATH = os.path.join(
 # Control-room root; relative db_path values are resolved against it.
 CONTROL_ROOM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# The only sensor of interest for now: PDG Pressure goes into channel_0.
-SENSOR_CHANNEL = 0
-NUM_CHANNELS = 10
+
+SENSOR_CHANNEL_MAPS = {
+    "PDG_pressure": "channel_0",
+    "top_riser_pressure": "channel_1",
+    "flowline_pressure": "channel_2",
+    "oil_flow_rate": "channel_3",
+}
 
 
 def load_config() -> dict:
@@ -31,11 +35,16 @@ def load_config() -> dict:
         return json.load(f)
 
 
-def append_reading(conn: sqlite3.Connection, timestamp: str, value: float) -> None:
-    channels = [None] * NUM_CHANNELS
-    channels[SENSOR_CHANNEL] = value
-    columns = ", ".join(f"channel_{i}" for i in range(NUM_CHANNELS))
-    placeholders = ", ".join("?" for _ in range(NUM_CHANNELS + 1))
+def append_reading(conn: sqlite3.Connection, timestamp: str, values: dict) -> None:
+    """Append a single row of sensor readings to the database.
+
+    ``values`` is a dict mapping channel names to float values.
+    """
+    # reorder values to match the channel order in SENSOR_CHANNEL_MAPS
+    channels = [values.get(k, None) for k in SENSOR_CHANNEL_MAPS]
+    columns = ", ".join(SENSOR_CHANNEL_MAPS.values())
+    placeholders = ", ".join("?" for _ in range(len(SENSOR_CHANNEL_MAPS) + 1))
+
     conn.execute(
         f"INSERT INTO sensor_readings (timestamp, {columns}) VALUES ({placeholders})",
         [timestamp] + channels,
@@ -72,12 +81,12 @@ def main() -> None:
     state = load_initial_state()
     while True:
         params = load_params()
-        state, value = run_fowm_step(state, sim_time, params)
+        state, values = run_fowm_step(state, sim_time, params)
         ts = (
             datetime.datetime.now(datetime.timezone.utc)
             + datetime.timedelta(seconds=sim_time)
         ).isoformat()
-        append_reading(conn, ts, float(value))
+        append_reading(conn, ts, values)
         time.sleep(write_freq)
 
 
