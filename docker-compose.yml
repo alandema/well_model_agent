@@ -33,9 +33,13 @@ services:
     build: ./control_room
     ports:
       - "8601:8601"
+      - "5679:5679"
+      - "5680:5680"
+    command: >-
+      sh -c "python -m debugpy --listen 0.0.0.0:5679 --wait-for-client app/main_write.py &
+      python -m debugpy --listen 0.0.0.0:5680 --wait-for-client -m streamlit run app/main_read.py
+      --server.port 8601 --server.address 0.0.0.0"
     volumes:
       - ./control_room:/app
-      - ./data:/data
     environment:
       - PYTHONPATH=/app
-      - TELEMETRY_DB_PATH=/data/telemetry.db

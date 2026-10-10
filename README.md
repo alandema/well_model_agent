@@ -81,6 +81,25 @@ The services are available at:
 - **FastAPI backend**: <http://localhost:8000>
 - **Swagger API documentation**: <http://localhost:8000/docs>
 - **ReDoc API documentation**: <http://localhost:8000/redoc>
+- **Control room dashboard**: <http://localhost:8601>
+
+### Debugging with VS Code
+
+The `backend` and `control_room` services start under `debugpy` and wait for a
+debugger to attach before running, so start Compose first and then attach from
+the **Run and Debug** panel. The attach configurations are in
+`.vscode/launch.json`:
+
+| Configuration | Port | Debugs |
+| --- | --- | --- |
+| `Python Debugger: Attach to Backend` | 5678 | `backend/api/main.py` (Uvicorn) |
+| `Python Debugger: Attach to Control Room (writer)` | 5679 | `control_room/app/main_write.py` (model loop) |
+| `Python Debugger: Attach to Control Room (Streamlit)` | 5680 | `control_room/app/main_read.py` (dashboard) |
+
+Each configuration maps the host service directory to `/app` in the container,
+so breakpoints set in the local sources resolve correctly. Because both
+services use `--wait-for-client`, the containers stay idle until you attach;
+attach to the writer and the Streamlit dashboard separately to debug both.
 
 The Compose configuration mounts the local `backend` and `frontend` directories into the containers. The backend writes checkpoints to `/app/agent/.checkpoints` and FOWM CSV files to `/app/agent/.outputs`, which correspond to `backend/agent/.checkpoints` and `backend/agent/.outputs` on the host. These directories are ignored by Git.
 
