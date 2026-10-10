@@ -1,0 +1,5 @@
+{
+    "db_path": "control_room/db",
+    "data_write_freq": 2,
+    "data_read_freq": 3
+}

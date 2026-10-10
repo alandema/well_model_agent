@@ -1,0 +1,114 @@
+{
+    "fowm_model": {
+        "simulation_params": {
+            "mlstill": {
+                "value": 710.98208,
+                "unit": "kg"
+            },
+            "Cg": {
+                "value": 0.0000234607899,
+                "unit": "kg / (Pa * s)"
+            },
+            "Cout": {
+                "value": 0.00581379357,
+                "unit": "m^2"
+            },
+            "Veb": {
+                "value": 90.1595194,
+                "unit": "m^3"
+            },
+            "E": {
+                "value": 0.0358225582,
+                "unit": "dimensionless"
+            },
+            "Kw": {
+                "value": 0.00102120538,
+                "unit": "m^2"
+            },
+            "Ka": {
+                "value": 0.000176662493,
+                "unit": "m^2"
+            },
+            "Kr": {
+                "value": 246.716473,
+                "unit": "kg / s"
+            }
+        },
+        "physical_constants": {
+            "Rol": {
+                "value": 900.0,
+                "description": "Liquid density, assumed constant. (kg / m^3)"
+            },
+            "R": {
+                "value": 8314.0,
+                "description": "Universal gas constant. (J / (kmol * K))"
+            },
+            "T": {
+                "value": 298.0,
+                "description": "Average temperature in the production system. (K)"
+            },
+            "M": {
+                "value": 18.0,
+                "description": "Gas molecular weight. (kg / kmol)"
+            },
+            "g": {
+                "value": 9.81,
+                "description": "Gravity acceleration. (m / s^2)"
+            },
+            "ALFAgw": {
+                "value": 0.0188,
+                "description": "Gas mass fraction at reservoir conditions. (dimensionless)"
+            },
+            "theta": {
+                "value": 45,
+                "description": "average riser inclination angle. (degrees)"
+            },
+            "Romres": {
+                "value": 891.9523,
+                "description": "Mixture density at the reservoir. (kg / m^3)"
+            }
+        },
+        "geometry_params": {
+            "D_ss": {
+                "value": 0.152,
+                "description": "Subsea pipeline diameter. (m)"
+            },
+            "D_t": {
+                "value": 0.15,
+                "description": "Tubing diameter (m)"
+            },
+            "D_a": {
+                "value": 0.14,
+                "description": "Annular diameter. (m)"
+            },
+            "L_r": {
+                "value": 1569.0,
+                "description": "Riser length. (m)"
+            },
+            "L_fl": {
+                "value": 2928.0,
+                "description": "Flowline length. (m)"
+            },
+            "L_t": {
+                "value": 1639.0,
+                "description": "Tubing length. (m)"
+            },
+            "L_a": {
+                "value": 1118.0,
+                "description": "Annular length. (m)"
+            },
+            "Hvgl": {
+                "value": 916.0,
+                "description": "Vertical length to the gas lift valve. (m)"
+            },
+            "Hpdg": {
+                "value": 1117.0,
+                "description": "Vertical length to the PDG. (m)"
+            },
+            "Ht": {
+                "value": 1279.0,
+                "description": "Vertical length to the bottom hole. (m)"
+            }
+        }
+    }
+}
