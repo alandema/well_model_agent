@@ -1,5 +1,6 @@
 {
-    "db_path": "control_room/db",
+    "db_path": "data/control_room.db",
+    "model_simulated_time": 1000,
     "data_write_freq": 2,
     "data_read_freq": 3
 }

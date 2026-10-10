@@ -1,6 +1,35 @@
 {
     "fowm_model": {
-        "simulation_params": {
+        "input_params": {
+            "x0": {
+                "values": [
+                    7629.49953301,
+                    1506.46645264,
+                    20249.26259091,
+                    2135.35823438,
+                    1130.58624768,
+                    15196.84541979
+                ],
+                "unit": "kg"
+            },
+            "separator_pressure": {
+                "value": 1013250.0,
+                "unit": "Pa"
+            },
+            "reservoir_pressure": {
+                "value": 2.25e7,
+                "unit": "Pa"
+            },
+            "choke_opening": {
+                "value": 25.0,
+                "unit": "percent"
+            },
+            "gas_injection_rate": {
+                "value": 165000.0,
+                "unit": "m^3/day"
+            }
+        },
+        "well_params": {
             "mlstill": {
                 "value": 710.98208,
                 "unit": "kg"

@@ -1,20 +1,18 @@
-import csv
+"""Standalone FOWM (Fast Offshore Wells Model) for the control room.
+
+Same ODE as the agent tool version, but without LangChain dependencies:
+``run_fowm`` returns ``(t, pdg_pressure)`` for the "PDG Pressure" sensor.
+"""
+
+import json
 import os
-import datetime
 
 import numpy as np
-from pydantic import BaseModel, Field
-from langchain.tools import tool, ToolRuntime
-from agent.graph.states import AgentState
-import pint
 
-from agent.services.config import load_config
-from agent.services.model_runner import run_odeint
+from services.model_runner import run_odeint
 
-# Directory where model outputs are written as CSV files.
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
 WELL_MODELS_CONFIG_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "configs", "well_models_config.json"
+    os.path.dirname(__file__), "..", "configs", "model_config.json"
 )
 
 
@@ -27,15 +25,15 @@ def fowm(initial_conditions, t, params):
     gas_injection_rate = input_values["gas_injection_rate"]
     choke_opening = input_values["choke_opening"]
 
-    simulation_params = params["simulation_params"]
-    mlstill = simulation_params["mlstill"]
-    Cg = simulation_params["Cg"]
-    Cout = simulation_params["Cout"]
-    Veb = simulation_params["Veb"]
-    E = simulation_params["E"]
-    Kw = simulation_params["Kw"]
-    Ka = simulation_params["Ka"]
-    Kr = simulation_params["Kr"]
+    well_params = params["well_params"]
+    mlstill = well_params["mlstill"]
+    Cg = well_params["Cg"]
+    Cout = well_params["Cout"]
+    Veb = well_params["Veb"]
+    E = well_params["E"]
+    Kw = well_params["Kw"]
+    Ka = well_params["Ka"]
+    Kr = well_params["Kr"]
 
     physical_constants = params["physical_constants"]
     Rol = physical_constants["Rol"]
@@ -122,150 +120,54 @@ def fowm(initial_conditions, t, params):
     return dx, outputs
 
 
-class PhysicalValue(BaseModel):
-    """A physical value with a unit."""
-    value: float = Field(...,
-                         description="The numerical value of the physical quantity.")
-    unit: str = Field(...,
-                      description="The unit of the physical quantity as per Pint python library (e.g., 'Pa', 'm^3/day').")
-
-
-class FowmModelInput(BaseModel):
-    """Input schema for the FOWM model tool."""
-    integration_time: float = Field(
-        default=100000.0,
-        gt=0,
-        description="Simulation duration in seconds.",
-    )
-    time_points: int = Field(
-        default=1001,
-        ge=2,
-        description="Number of time points to calculate, including the initial point.",
-    )
-    x0: list[float] = Field(
-        default=[7629.49953301, 1506.46645264, 20249.26259091,
-                 2135.35823438, 1130.58624768, 15196.84541979],
-        description="Initial state variables [x1..x6].",
-    )
-    gas_injection_rate: PhysicalValue = Field(
-        default=PhysicalValue(value=165000.0, unit="m^3/day"),
-        description="Gas injected into the annulus for gas lift.",
-    )
-    choke_opening: PhysicalValue = Field(
-        default=PhysicalValue(value=16.0, unit="percent"),
-        description="Production choke opening.",
-    )
-    separator_pressure: PhysicalValue = Field(
-        default=PhysicalValue(value=1013250.0, unit="Pa"),
-        description="Downstream pressure at the separator or riser outlet.",
-    )
-    reservoir_pressure: PhysicalValue = Field(
-        default=PhysicalValue(value=2.25e7, unit="Pa"),
-        description="Reservoir pressure driving production inflow.",
-    )
-
-
-def _convert_physical_value(value, target_unit, ureg):
-    """Convert a physical-value object to a numeric model value."""
-    physical_value = PhysicalValue.model_validate(value)
-    return (physical_value.value * ureg(physical_value.unit)).to(target_unit).magnitude
-
-
-@tool(
-    args_schema=FowmModelInput,
-    description=(
-        """
-Use this tool to simulate or analyze offshore deepwater and ultra-deepwater petroleum production systems using the Fast Offshore Wells Model (FOWM)[cite: 1].
-
-WHEN TO USE:
-* The query requires fast, real-time performance for monitoring, control, or optimization without numerical stiffness[cite: 1].
-* The user needs a single, holistic model covering the entire system architecture (reservoir, tubing, gas lift annular, flowline, and riser)[cite: 1].
-* The scenario involves analyzing severe slugging (limit cycles) generated simultaneously by casing heading (gas lift) and terrain/riser topography[cite: 1].
-* The user needs estimations for unmeasured flow rates and pressures at key strategic points like PDG, TPT, and topside connections[cite: 1].
-
-WHEN TO PREFER OTHER MODELS (e.g., OLGA or rigorous PDE simulators):
-* The query strictly requires momentum and energy conservation balances, as FOWM relies solely on mass conservation ODEs[cite: 1].
-* The user needs spatial variations of states within a control volume (PDEs) rather than a simplified lumped-parameter model[cite: 1].
-* The analysis requires pressure drops calculated as a function of fluid velocities[cite: 1].
-* The focus is on minor hydrodynamic slugs (wave formation due to phase slip) rather than severe slugging limit cycles[cite: 1].
-"""
-    ),
-)
-def fowm_model(
-    integration_time: float,
-    time_points: int,
-    x0: list[float],
-    gas_injection_rate: PhysicalValue,
-    choke_opening: PhysicalValue,
-    separator_pressure: PhysicalValue,
-    reservoir_pressure: PhysicalValue,
-    runtime: ToolRuntime[None, AgentState],
-) -> dict:
-    """Run the FOWM model and write the results to a CSV file.
-
-    Returns the absolute path to the generated CSV file.
-    """
-
-    current_run_id = runtime.state.get("run_id")
-
-    try:
-        config = load_config(WELL_MODELS_CONFIG_PATH)
-
-        # ureg = pint.UnitRegistry()
-
-        params = {
-            "input_values": {
-                "separator_pressure": separator_pressure.value,
-                "reservoir_pressure": reservoir_pressure.value,
-                "gas_injection_rate": gas_injection_rate.value,
-                "choke_opening": choke_opening.value,
-            },
-            "simulation_params": {k: v['value'] for k, v in config["fowm_model"]["simulation_params"].items()},
-            "physical_constants": {k: v['value'] for k, v in config["fowm_model"]["physical_constants"].items()},
-            "geometry_params": {k: v['value'] for k, v in config["fowm_model"]["geometry_params"].items()}
-        }
-        sol, outputs, t = run_odeint(
-            fowm,
-            x0,
-            integration_time,
-            params,
-            time_points,
-        )
-    except Exception as e:
-        return f"Error running FOWM model: {str(e)}"
-
-    # Build the CSV: one row per time point with t, states, then pressures.
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    file_path = os.path.join(
-        OUTPUT_DIR, f"fowm_{datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).strftime('%Y-%m-%d_%H-%M-%S')}.csv")
-
-    pressure_keys = list(outputs[0].keys())
-    header = ["t", "x1", "x2", "x3", "x4", "x5", "x6"] + pressure_keys
-
-    with open(file_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        for i in range(len(t)):
-            row = [t[i]] + list(sol[i]) + [outputs[i][k]
-                                           for k in pressure_keys]
-            writer.writerow(row)
-
-    # return f"Results saved to {os.path.abspath(file_path)}. The CSV contains columns: {', '.join(header)}."
+def load_params():
+    """Build the FOWM params dict from model_config.json (x0 excluded)."""
+    with open(WELL_MODELS_CONFIG_PATH, "r", encoding="utf-8") as f:
+        config = json.load(f)
+    model = config["fowm_model"]
     return {
-        "file_path": os.path.abspath(file_path),
-        "columns": header,
-        # Resolved input values actually used in the simulation. Pydantic
-        # fills schema defaults before this body runs, so these are correct
-        # even when the caller invoked the tool with empty/default args.
-        "inputs_used": {
-            "gas_injection_rate": f"{gas_injection_rate.value} {gas_injection_rate.unit}",
-            "choke_opening": f"{choke_opening.value} {choke_opening.unit}",
-            "separator_pressure": f"{separator_pressure.value} {separator_pressure.unit}",
-            "reservoir_pressure": f"{reservoir_pressure.value} {reservoir_pressure.unit}",
-            "integration_time": integration_time,
-            "time_points": time_points,
-            "x0": x0,
+        "input_values": {
+            k: v["value"]
+            for k, v in model["input_params"].items()
+            if k != "x0"
         },
-        "message": f"Results saved to {os.path.abspath(file_path)}.",
-        "run_id": current_run_id
+        "well_params": {k: v["value"] for k, v in model["well_params"].items()},
+        "physical_constants": {
+            k: v["value"] for k, v in model["physical_constants"].items()
+        },
+        "geometry_params": {
+            k: v["value"] for k, v in model["geometry_params"].items()
+        },
     }
+
+
+def load_initial_state():
+    """Initial state x0 from model_config.json; only used at service start."""
+    with open(WELL_MODELS_CONFIG_PATH, "r", encoding="utf-8") as f:
+        config = json.load(f)
+    return config["fowm_model"]["input_params"]["x0"]["values"]
+
+
+def run_fowm(x0, integration_time, time_points, params):
+    """Run the FOWM model and return ``(t, pdg_pressure, states)``."""
+    sol, outputs, t = run_odeint(
+        fowm,
+        list(x0),
+        integration_time,
+        params,
+        time_points,
+    )
+    pdg_pressure = np.array([o["PDG_pressure"] for o in outputs])
+    return t, pdg_pressure, sol
+
+
+def run_fowm_step(x, step_seconds, params):
+    """Simulate a single next state, ``step_seconds`` after state ``x``.
+
+    Maps the writer's ``model_simulated_time`` onto the simulation grid:
+    ``integration_time = step_seconds`` and ``time_points = 2`` (current and
+    next state). Returns ``(next_state, pdg_pressure)``; feed ``next_state``
+    back into the next call to keep the simulation continuous.
+    """
+    sol, outputs, _ = run_odeint(fowm, list(x), step_seconds, params, 2)
+    return sol[-1], outputs[-1]["PDG_pressure"]
