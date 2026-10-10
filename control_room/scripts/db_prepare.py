@@ -51,10 +51,6 @@ def main() -> None:
     finally:
         conn.close()
 
-    # create empty JSON in DB Path folder
-    with open(DB_DIR + "/last_state.json", "w", encoding="utf-8") as f:
-        json.dump({}, f, indent=4)
-
     print(f"Database ready at {DB_PATH}")
 
 
