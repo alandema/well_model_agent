@@ -96,7 +96,7 @@ def show_readings() -> None:
             });
         """
     for channel, sensor_name in SENSOR_CHANNEL_MAPS.items():
-        fig = px.scatter(
+        fig = px.line(
             df,
             x="timestamp",
             y=channel,
