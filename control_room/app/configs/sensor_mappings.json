@@ -22,7 +22,7 @@
     "choke_opening": {
         "channel": "channel_4",
         "label": "Choke Opening",
-        "unit": "percent"
+        "unit": "%"
     },
     "gas_injection_rate": {
         "channel": "channel_5",
