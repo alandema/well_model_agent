@@ -15,14 +15,18 @@ import streamlit as st
 CONFIG_PATH = os.path.join(
     os.path.dirname(__file__), "configs", "simulation_config.json"
 )
+SENSOR_MAPPINGS_PATH = os.path.join(
+    os.path.dirname(__file__), "configs", "sensor_mappings.json"
+)
 # Control-room root; relative db_path values are resolved against it.
 CONTROL_ROOM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+with open(SENSOR_MAPPINGS_PATH, "r", encoding="utf-8") as f:
+    _SENSOR_MAPPINGS = json.load(f)
+
+# SQLite channel column -> display label.
 SENSOR_CHANNEL_MAPS = {
-    "channel_0": "PDG Pressure",
-    "channel_1": "Top Riser Pressure",
-    "channel_2": "Flowline Pressure",
-    "channel_3": "Oil Flow Rate",
+    entry["channel"]: entry["label"] for entry in _SENSOR_MAPPINGS.values()
 }
 
 HISTORY_ROWS = 300

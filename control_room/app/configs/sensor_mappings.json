@@ -1,0 +1,32 @@
+{
+    "PDG_pressure": {
+        "channel": "channel_0",
+        "label": "PDG Pressure",
+        "unit": "Pa"
+    },
+    "top_riser_pressure": {
+        "channel": "channel_1",
+        "label": "Top Riser Pressure",
+        "unit": "Pa"
+    },
+    "flowline_pressure": {
+        "channel": "channel_2",
+        "label": "Flowline Pressure",
+        "unit": "Pa"
+    },
+    "oil_flow_rate": {
+        "channel": "channel_3",
+        "label": "Oil Flow Rate",
+        "unit": "m^3/s"
+    },
+    "choke_opening": {
+        "channel": "channel_4",
+        "label": "Choke Opening",
+        "unit": "percent"
+    },
+    "gas_injection_rate": {
+        "channel": "channel_5",
+        "label": "Gas Injection Rate",
+        "unit": "m^3/day"
+    }
+}

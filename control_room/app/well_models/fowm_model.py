@@ -172,4 +172,5 @@ def run_fowm_step(x, step_seconds, params):
     back into the next call to keep the simulation continuous.
     """
     sol, outputs, _ = run_odeint(fowm, list(x), step_seconds, params, 2)
-    return sol[-1], outputs[-1]
+
+    return sol[-1], outputs[-1], params["input_values"]
