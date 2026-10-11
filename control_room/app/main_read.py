@@ -1,7 +1,8 @@
 """Minimal control-room Streamlit app.
 
-Reads mapped sensor channels from SQLite and displays one scatter chart per
-sensor, refreshing every ``data_read_freq`` seconds.
+Reads mapped sensor channels from SQLite and displays one line chart per
+sensor, refreshing every ``data_read_freq`` seconds. Each stored cell is
+``"<value> <unit>"``; the reader splits it back into a number and a unit.
 """
 
 import json
@@ -37,7 +38,20 @@ def load_config() -> dict:
         return json.load(f)
 
 
-def read_readings(db_path: str, limit: int) -> pd.DataFrame:
+def split_value_unit(cell: str) -> tuple[float | None, str]:
+    """Split a stored ``"<value> <unit>"`` cell into its number and unit."""
+    if cell is None:
+        return None, ""
+    parts = str(cell).split(maxsplit=1)
+    try:
+        value = float(parts[0])
+    except (IndexError, ValueError):
+        return None, ""
+    return value, parts[1] if len(parts) > 1 else ""
+
+
+def read_readings(db_path: str, limit: int) -> tuple[pd.DataFrame, dict]:
+    """Return the readings frame plus the unit found in each channel column."""
     channels = list(SENSOR_CHANNEL_MAPS)
     channel_columns = ", ".join(channels)
     conn = sqlite3.connect(db_path, timeout=5)
@@ -51,7 +65,14 @@ def read_readings(db_path: str, limit: int) -> pd.DataFrame:
     finally:
         conn.close()
     rows.reverse()
-    return pd.DataFrame(rows, columns=["timestamp", *channels])
+    df = pd.DataFrame(rows, columns=["timestamp", *channels])
+    units = {}
+    for channel in channels:
+        parsed = [split_value_unit(cell) for cell in df[channel]]
+        df[channel] = [value for value, _ in parsed]
+        # The unit is constant per channel; take the latest non-empty one.
+        units[channel] = next((unit for _, unit in reversed(parsed) if unit), "")
+    return df, units
 
 
 st.set_page_config(page_title="Control room", layout="wide")
@@ -70,7 +91,7 @@ if not os.path.exists(db_path):
 
 @st.fragment(run_every=config["data_read_freq"])
 def show_readings() -> None:
-    df = read_readings(db_path, HISTORY_ROWS)
+    df, units = read_readings(db_path, HISTORY_ROWS)
     if df.empty:
         st.write("No data available.")
         return
@@ -103,11 +124,13 @@ def show_readings() -> None:
             });
         """
     for channel, sensor_name in SENSOR_CHANNEL_MAPS.items():
+        unit = units.get(channel, "")
+        axis_label = f"{sensor_name} ({unit})" if unit else sensor_name
         fig = px.line(
             df,
             x="timestamp",
             y=channel,
-            labels={"timestamp": "Timestamp", channel: sensor_name},
+            labels={"timestamp": "Timestamp", channel: axis_label},
         )
         chart_html = fig.to_html(
             full_html=False,

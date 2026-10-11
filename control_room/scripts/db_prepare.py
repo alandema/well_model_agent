@@ -5,8 +5,8 @@ Run manually before starting the services:
     python scripts/db_prepare.py
 
 Creates ``data/control_room.db`` with a single ``sensor_readings`` table
-(``timestamp`` + ``channel_0`` .. ``channel_9``) and writes
-``app/configs/simulation_config.json``.
+(``timestamp`` + ``channel_0`` .. ``channel_9``). Channel cells are TEXT
+holding ``"<value> <unit>"``, so the unit travels with each reading.
 """
 
 import json
@@ -38,7 +38,7 @@ def main() -> None:
         # Default rollback journal: WAL needs shared memory (mmap), which is
         # unavailable on Windows Docker bind mounts.
         conn.execute("PRAGMA journal_mode = DELETE")
-        channels = ", ".join(f"channel_{i} REAL" for i in range(NUM_CHANNELS))
+        channels = ", ".join(f"channel_{i} TEXT" for i in range(NUM_CHANNELS))
         conn.execute(
             f"""
             CREATE TABLE IF NOT EXISTS sensor_readings (

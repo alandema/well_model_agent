@@ -3,8 +3,9 @@
 Reads ``app/configs/simulation_config.json`` and appends one row every
 ``data_write_freq`` seconds of real time. Each row advances the simulation by
 ``model_simulated_time`` seconds, so the stored timestamp is the current UTC
-time plus ``model_simulated_time``. The model outputs written to each channel
-are defined in ``app/configs/sensor_mappings.json``.
+time plus ``model_simulated_time``. The channels and units written are defined
+in ``app/configs/sensor_mappings.json``; each cell is stored as
+``"<value> <unit>"``.
 """
 
 import datetime
@@ -27,38 +28,34 @@ CONTROL_ROOM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 with open(SENSOR_MAPPINGS_PATH, "r", encoding="utf-8") as f:
     _SENSOR_MAPPINGS = json.load(f)
 
-# Model output name -> SQLite channel column.
-SENSOR_CHANNEL_MAPS = {
-    name: entry["channel"] for name, entry in _SENSOR_MAPPINGS.items()
-}
-
 
 def load_config() -> dict:
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
-def append_reading(conn: sqlite3.Connection, timestamp: str, values: dict, input_values: dict) -> None:
+def append_reading(
+    conn: sqlite3.Connection, timestamp: str, values: dict, input_values: dict
+) -> None:
     """Append a single row to the sensor_readings table.
 
-    The ``values`` dict is the model outputs, and ``input_values`` is the model inputs.
-    Both are mapped to the correct channel columns using SENSOR_CHANNEL_MAPS.
+    ``values`` holds the model outputs and ``input_values`` the model inputs.
+    Each mapped channel is stored as ``"<value> <unit>"``, using the channel
+    and unit from configs/sensor_mappings.json.
     """
-    # reorder values to match the channel order in SENSOR_CHANNEL_MAPS
-    channels = [0.0] * len(SENSOR_CHANNEL_MAPS)
-    for name, value in {**values, **input_values}.items():
-        channel = SENSOR_CHANNEL_MAPS.get(name)
-        if channel is not None:
-            index = int(channel.split("_")[1])
-            channels[index] = value
+    merged = {**values, **input_values}
+    columns = []
+    row = []
+    for name, entry in _SENSOR_MAPPINGS.items():
+        columns.append(entry["channel"])
+        value = merged.get(name)
+        row.append(None if value is None else f"{value} {entry['unit']}")
 
-    columns = ", ".join(SENSOR_CHANNEL_MAPS.values())
-    placeholders = ", ".join("?" for _ in range(
-        len(channels) + 1))  # +1 for timestamp
-
+    placeholders = ", ".join("?" for _ in range(len(columns) + 1))
     conn.execute(
-        f"INSERT INTO sensor_readings (timestamp, {columns}) VALUES ({placeholders})",
-        [timestamp] + channels,
+        f"INSERT INTO sensor_readings (timestamp, {', '.join(columns)}) "
+        f"VALUES ({placeholders})",
+        [timestamp] + row,
     )
     conn.commit()
 
