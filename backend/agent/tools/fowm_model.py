@@ -3,19 +3,37 @@ import os
 import datetime
 
 import numpy as np
+from scipy.integrate import odeint
 from pydantic import BaseModel, Field
 from langchain.tools import tool, ToolRuntime
 from agent.graph.states import AgentState
 import pint
 
 from agent.services.config import load_config
-from agent.services.model_runner import run_odeint
 
 # Directory where model outputs are written as CSV files.
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", ".outputs")
 WELL_MODELS_CONFIG_PATH = os.path.join(
     os.path.dirname(__file__), "..", "configs", "well_models_config.json"
 )
+
+
+def run_odeint(
+    model_fn,
+    x0,
+    integration_time,
+    params,
+    time_points,
+):
+    """Run standard non-stiff ODE simulation using scipy.integrate.odeint (LSODA)."""
+    def dynamics(x, t, params):
+        dx, _ = model_fn(x, t, params)
+        return dx
+
+    t = np.linspace(0, integration_time, time_points)
+    sol = odeint(dynamics, x0, t, args=(params,))
+    outputs = [model_fn(sol[i], t[i], params)[1] for i in range(len(t))]
+    return sol, outputs, t
 
 
 def fowm(initial_conditions, t, params):
