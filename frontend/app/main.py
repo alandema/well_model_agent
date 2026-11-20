@@ -36,7 +36,7 @@ if prompt := st.chat_input("Ask the well model agent..."):
                     "message": prompt,
                     "thread_id": st.session_state.thread_id,
                 }
-                resp = requests.post(CHAT_URL, json=payload, timeout=10)
+                resp = requests.post(CHAT_URL, json=payload, timeout=300)
                 resp.raise_for_status()
                 data = resp.json()
             except requests.RequestException as e:
