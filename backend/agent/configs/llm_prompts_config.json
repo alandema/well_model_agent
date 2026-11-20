@@ -1,6 +1,6 @@
 {
     "principal": {
-        "model_id": "deepseek/deepseek-v4-flash-0731",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -8,7 +8,7 @@
             },
             "provider": {
                 "order": [
-                    "relace/fp4"
+                    "wafer/us"
                 ],
                 "allow_fallbacks": false,
                 "require_parameters": true
@@ -17,7 +17,7 @@
         "system_prompt_path": "prompts/principal.md"
     },
     "Generator": {
-        "model_id": "deepseek/deepseek-v4-flash-0731",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -25,7 +25,7 @@
             },
             "provider": {
                 "order": [
-                    "relace/fp4"
+                    "wafer/us"
                 ],
                 "allow_fallbacks": false,
                 "require_parameters": true
@@ -34,7 +34,7 @@
         "system_prompt_path": "prompts/generator.md"
     },
     "Evaluator": {
-        "model_id": "deepseek/deepseek-v4-flash-0731",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -42,7 +42,7 @@
             },
             "provider": {
                 "order": [
-                    "relace/fp4"
+                    "wafer/us"
                 ],
                 "allow_fallbacks": false,
                 "require_parameters": true
@@ -51,7 +51,7 @@
         "system_prompt_path": "prompts/evaluator.md"
     },
     "Judge": {
-        "model_id": "deepseek/deepseek-v4-flash-0731",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -59,7 +59,7 @@
             },
             "provider": {
                 "order": [
-                    "relace/fp4"
+                    "wafer/us"
                 ],
                 "allow_fallbacks": false,
                 "require_parameters": true
@@ -68,7 +68,7 @@
         "system_prompt_path": "prompts/judge.md"
     },
     "finalizer": {
-        "model_id": "deepseek/deepseek-v4-flash-0731",
+        "model_id": "z-ai/glm-5.3-flash",
         "model_config": {
             "temperature": 0,
             "reasoning": {
@@ -76,7 +76,7 @@
             },
             "provider": {
                 "order": [
-                    "relace/fp4"
+                    "wafer/us"
                 ],
                 "allow_fallbacks": false,
                 "require_parameters": true

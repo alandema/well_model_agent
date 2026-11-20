@@ -5,14 +5,13 @@ services:
       - "8000:8000"
       - "5678:5678"
     command: >-
-      python -m debugpy --listen 0.0.0.0:5678 --wait-for-client
-      -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+      python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m uvicorn api.main:app --host 0.0.0.0 --port 8000
     volumes:
       - ./backend:/app
-      - ./data:/data
+      - ./control_room/data:/control_room/data:ro
     environment:
       - PYTHONPATH=/app
-      - TELEMETRY_DB_PATH=/data/telemetry.db
+      - CONTROL_ROOM_DB_PATH=/control_room/data/control_room.db
     env_file:
       - ./backend/.env
 
@@ -28,7 +27,7 @@ services:
       - PYTHONPATH=/app
     env_file:
       - ./frontend/.env
-    
+
   control_room:
     build: ./control_room
     ports:
@@ -36,9 +35,7 @@ services:
       - "5679:5679"
       - "5680:5680"
     command: >-
-      sh -c "python -m debugpy --listen 0.0.0.0:5679 --wait-for-client app/main_write.py &
-      python -m debugpy --listen 0.0.0.0:5680 --wait-for-client -m streamlit run app/main_read.py
-      --server.port 8601 --server.address 0.0.0.0"
+      sh -c "python -m debugpy --listen 0.0.0.0:5679 --wait-for-client app/main_write.py & python -m debugpy --listen 0.0.0.0:5680 --wait-for-client -m streamlit run app/main_read.py --server.port 8601 --server.address 0.0.0.0"
     volumes:
       - ./control_room:/app
     environment:
