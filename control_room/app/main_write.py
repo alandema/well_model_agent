@@ -10,9 +10,12 @@ in ``app/configs/sensor_mappings.json``; each cell is stored as
 
 import datetime
 import json
+import math
 import os
 import sqlite3
 import time
+
+import numpy as np
 
 from well_models.fowm_model import load_initial_state, load_params, run_fowm_step
 
@@ -32,6 +35,48 @@ with open(SENSOR_MAPPINGS_PATH, "r", encoding="utf-8") as f:
 def load_config() -> dict:
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+class ReservoirPressureNoise:
+    """Sample positive pressure disturbances with a fixed five-step correlation."""
+
+    CORRELATION_LENGTH_STEPS = 5.0
+
+    def __init__(self, intensity: float) -> None:
+        intensity = float(intensity)
+        if not math.isfinite(intensity) or intensity < 0:
+            raise ValueError("reservoir pressure noise intensity must be >= 0")
+
+        # For a lognormal multiplier, this maps the configured coefficient of
+        # variation to its log-space standard deviation. The -sigma^2/2 offset
+        # below keeps the expected pressure equal to its nominal value.
+        log_variance = math.log1p(intensity**2)
+        if not math.isfinite(log_variance):
+            raise ValueError("reservoir pressure noise intensity is too large")
+        self.log_std = math.sqrt(log_variance)
+        self.rng = np.random.default_rng()
+        self.log_deviation = self.log_std * self.rng.standard_normal()
+        decay = math.exp(-1.0 / self.CORRELATION_LENGTH_STEPS)
+        self.innovation_std = self.log_std * math.sqrt(
+            -math.expm1(-2.0 / self.CORRELATION_LENGTH_STEPS)
+        )
+        self.decay = decay
+
+    def apply(self, params: dict) -> None:
+        """Set one held pressure sample and advance the exact OU process."""
+        inputs = params["input_values"]
+        nominal_pressure = float(inputs["reservoir_pressure"])
+        if not math.isfinite(nominal_pressure) or nominal_pressure <= 0:
+            raise ValueError("nominal reservoir_pressure must be positive and finite")
+
+        inputs["reservoir_pressure"] = nominal_pressure * math.exp(
+            self.log_deviation - 0.5 * self.log_std**2
+        )
+
+        self.log_deviation = (
+            self.decay * self.log_deviation
+            + self.innovation_std * self.rng.standard_normal()
+        )
 
 
 def append_reading(
@@ -87,8 +132,16 @@ def main() -> None:
     # continuity.
 
     state = load_initial_state()
+    noise_config = config.get("reservoir_pressure_noise", {})
+    pressure_noise = (
+        ReservoirPressureNoise(noise_config["intensity"])
+        if noise_config.get("enable", False)
+        else None
+    )
     while True:
         params = load_params()
+        if pressure_noise is not None:
+            pressure_noise.apply(params)
         state, values, input_values = run_fowm_step(state, sim_time, params)
         ts = (
             datetime.datetime.now(datetime.timezone.utc)

@@ -2,5 +2,9 @@
     "db_path": "data/control_room.db",
     "model_simulated_time": 1000,
     "data_write_freq": 2,
-    "data_read_freq": 3
+    "data_read_freq": 3,
+    "reservoir_pressure_noise": {
+        "enable": true,
+        "intensity": 0.005
+    }
 }

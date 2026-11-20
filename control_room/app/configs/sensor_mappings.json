@@ -28,5 +28,10 @@
         "channel": "channel_5",
         "label": "Gas Injection Rate",
         "unit": "m^3/day"
+    },
+    "reservoir_pressure": {
+        "channel": "channel_6",
+        "label": "Reservoir Pressure",
+        "unit": "Pa"
     }
 }

@@ -194,6 +194,17 @@ Runs the same graph as `/chat` and returns `text/plain`. The endpoint currently 
 
 ## FOWM simulation
 
+The control-room writer adds a correlated disturbance to the FOWM
+`reservoir_pressure` input. Its only noise settings in
+`control_room/app/configs/simulation_config.json` are `enable` and `intensity`;
+intensity is the relative standard deviation (coefficient of variation), with
+`0.005` meaning 0.5%. Noise is correlated over a fixed five ODE steps in the
+implementation. Each pressure sample is held constant over one
+`model_simulated_time` ODE step and is also written to the Reservoir Pressure
+chart. The log-space Ornstein–Uhlenbeck update preserves positive pressure and
+the nominal arithmetic mean. The default intensity is illustrative and should
+be calibrated against pressure data for a specific well.
+
 The `fowm_model` tool accepts the following inputs. Physical values are objects with a numeric `value` and a Pint-compatible `unit`:
 
 - `gas_injection_rate` (default `165000 m^3/day`).
