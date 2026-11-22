@@ -5,13 +5,13 @@ from langchain_core.messages import SystemMessage
 from agent.graph.states import AgentState
 from agent.services.config import read_system_prompt
 from agent.services.llm_model_factory import create_chat_model
-from agent.tools import setpoint, read_sqlite
+from agent.tools import setpoint, data_reader, today_reference, python_repl
 
 
 class ModelNode:
 
     def __init__(self, model_config: dict):
-        self._tools = [setpoint, read_sqlite]
+        self._tools = [setpoint, data_reader, today_reference, python_repl]
         system_prompt = read_system_prompt(model_config)
         self._system = SystemMessage(
             content=system_prompt) if system_prompt else None
